@@ -329,7 +329,7 @@ class DistSAModelTrainer(Trainer):
                 batch = tuple(t.to(self.device) for t in batch)
                 user_ids, input_ids, target_pos, target_neg, _ = batch
                 # bpr optimization
-                sequence_mean_output, sequence_cov_output, _, _ = self.model.finetune(input_ids, user_ids, remove_image=self.args.train_remove_image, remove_text=self.args.train_remove_text)
+                sequence_mean_output, sequence_cov_output, _, _ = self.model.finetune(input_ids, user_ids)
                 loss, batch_auc, pvn_loss = self.bpr_optimization(sequence_mean_output, sequence_cov_output, target_pos, target_neg)
 
                 loss = loss + pvn_loss
@@ -369,7 +369,7 @@ class DistSAModelTrainer(Trainer):
                         # 0. batch_data will be sent into the device(GPU or cpu)
                         batch = tuple(t.to(self.device) for t in batch)
                         user_ids, input_ids, target_pos, target_neg, answers = batch
-                        recommend_mean_output, recommend_cov_output, _, _= self.model.finetune(input_ids, user_ids, remove_image=self.args.test_remove_image, remove_text=self.args.test_remove_text)
+                        recommend_mean_output, recommend_cov_output, _, _= self.model.finetune(input_ids, user_ids)
 
                         recommend_mean_output = recommend_mean_output[:, -1, :]
                         recommend_cov_output = recommend_cov_output[:, -1, :]

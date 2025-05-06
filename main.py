@@ -12,13 +12,13 @@ import time
 import os
 
 base_dir = os.path.dirname(os.path.abspath(__file__))  
-data_name = 'Sports'
+data_name = 'Beauty'
 
 
 def main():
     start_time = time.time()
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data_dir', default='./data/', type=str)
+    parser.add_argument('--data_dir', default=f'./data/Features/{data_name}/', type=str)
     parser.add_argument('--output_dir', default=f'outputs/{data_name}', type=str)
     parser.add_argument('--data_name', default=f'reviews_{data_name}', type=str)
     parser.add_argument('--do_eval', action='store_true')
@@ -26,8 +26,8 @@ def main():
     parser.add_argument('--patience', default=10, type=int, help="pretrain epochs 10, 20, 30...")
 
     # model args
-    # parser.add_argument("--model_name", default='DistSAModel', type=str)#Finetune_full
-    parser.add_argument("--model_name", default='SASRec', type=str)#Finetune_full
+    parser.add_argument("--model_name", default='DistSAModel', type=str)#Finetune_full
+    # parser.add_argument("--model_name", default='SASRec', type=str)#Finetune_full
     parser.add_argument("--hidden_size", type=int, default=256, help="hidden size of transformer model") #64
     parser.add_argument("--num_hidden_layers", type=int, default=1, help="number of layers")
     parser.add_argument('--num_attention_heads', default=4, type=int)
@@ -52,9 +52,7 @@ def main():
     parser.add_argument('--num_shared_experts', default=2, type=int, help="shared experts for multi-modal fusion")
     parser.add_argument('--num_specific_experts', default=4, type=int, help="specific experts for multi-modal fusion")
     parser.add_argument('--low_rank', default=4, type=int, help="low_rank matrix")
-    parser.add_argument('--vae_latent_dim', default=64, type=int, help="dim of vae laten")
     parser.add_argument('--global_transformer_nhead', default=4, type=int)
-    parser.add_argument('--global_transformer_hidden_layer', default=256, type=int)
     parser.add_argument("--prediction", type=bool, default=False, help="activate prediction mode")
 
     # train args
@@ -68,12 +66,6 @@ def main():
     parser.add_argument("--adam_beta1", type=float, default=0.9, help="adam first beta value")
     parser.add_argument("--adam_beta2", type=float, default=0.999, help="adam second beta value")
     parser.add_argument("--gpu_id", type=str, default="0", help="gpu_id")
-
-  
-    parser.add_argument("--train_remove_image", type=bool, default=False, help="remove train image modality")
-    parser.add_argument("--train_remove_text", type=bool, default=False, help="remove train text modality")
-    parser.add_argument("--test_remove_image", type=bool, default=False, help="remove test image modality")
-    parser.add_argument("--test_remove_text", type=bool, default=False, help="remove test text modality")
 
     args = parser.parse_args()
 

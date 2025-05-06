@@ -6,14 +6,6 @@ from modules import LayerNorm, DistSAEncoder
 
 
 
-def global_embeddings(self, x1):
-
-    x1 = self.low_rank_layer((x1.transpose(0, 1)))
-    x1 = self.transformer(x1)
-    x1 = self.low_rank_layer1(x1.transpose(0, 1))
-
-    return x1
-
 
 class SASRecModel(nn.Module):
     def __init__(self, args):
@@ -149,6 +141,164 @@ class FilterLayer(nn.Module):
             x = self.filter_layers[layer_idx](x_fft_filtered) + x
 
         return x
+
+
+class MultiScaleFusionLayer(nn.Module):
+    def __init__(
+        self,
+        hidden_size,
+        low_rank,
+        num_shared_experts,
+        num_specific_experts,
+        experts_shared,
+        experts_task1,
+        experts_task2,
+        experts_task3,
+        dnn_share,
+        dnn1,
+        dnn2,
+        dnn3,
+        attention_layer
+    ):
+        super().__init__()
+
+        self.hidden_size = hidden_size
+        self.low_rank = low_rank
+        self.num_shared_experts = num_shared_experts
+        self.num_specific_experts = num_specific_experts
+
+        self.experts_shared = experts_shared
+        self.experts_task1 = experts_task1
+        self.experts_task2 = experts_task2
+        self.experts_task3 = experts_task3
+
+        self.dnn_share = dnn_share
+        self.dnn1 = dnn1
+        self.dnn2 = dnn2
+        self.dnn3 = dnn3
+
+        self.attention_layer = attention_layer
+
+    def forward(self, id_feat, img_feat, txt_feat):
+        """
+        Args:
+            id_feat, img_feat, txt_feat: [B, L, D]
+        Returns:
+            fused_output: [B, L, D]
+        """
+        x = torch.cat([id_feat, img_feat, txt_feat], axis=-1)
+
+        # experts_shared_o = [e(x) for e in self.experts_shared_mean]
+        experts_shared_o = [e(x) for e in self.experts_shared]
+        experts_shared_o = torch.stack(experts_shared_o)
+        experts_shared_o = experts_shared_o.squeeze()
+
+        # gate_share
+        # selected_s = self.dnn_share_mean(x)
+        selected_s = self.dnn_share(x)
+        gate_share_out = torch.einsum('abcd, bca -> bcd', experts_shared_o, selected_s)
+
+        experts_task1_o = [e(id_feat + gate_share_out) for e in self.experts_task1]
+        experts_task1_o = torch.stack(experts_task1_o)
+        experts_task2_o = [e(img_feat + gate_share_out) for e in self.experts_task2]
+        experts_task2_o = torch.stack(experts_task2_o)
+        experts_task3_o = [e(txt_feat + gate_share_out) for e in self.experts_task3]
+        experts_task3_o = torch.stack(experts_task3_o)
+
+        # experts_shared_o = experts_shared_o.squeeze()
+        experts_task1_o = experts_task1_o.squeeze()
+        experts_task2_o = experts_task2_o.squeeze()
+        experts_task3_o = experts_task3_o.squeeze()
+
+        # gate1
+        selected1 = self.dnn1(id_feat)
+        gate_1_out = torch.einsum('abcd, bca -> bcd', experts_task1_o, selected1)
+
+        # gate2
+        selected2 = self.dnn2(img_feat)
+        gate_2_out = torch.einsum('abcd, bca -> bcd', experts_task2_o, selected2)
+
+        # gate3
+        selected3 = self.dnn3(txt_feat)
+        gate_3_out = torch.einsum('abcd, bca -> bcd', experts_task3_o, selected3)
+
+        # gather
+        combined_gate_outputs = torch.cat([gate_1_out, gate_2_out, gate_3_out, gate_share_out], dim=-1)
+        attention_scores = self.attention_layer(combined_gate_outputs)
+        attention_scores = F.softmax(attention_scores, dim=-1)
+        weighted_gate_1_out = gate_1_out[:, 0, :] * attention_scores[:, 0, :]
+        weighted_gate_2_out = gate_2_out[:, 0, :] * attention_scores[:, 1, :]
+        weighted_gate_3_out = gate_3_out[:, 0, :] * attention_scores[:, 2, :]
+        weighted_gate_share_out = gate_share_out[:, 0, :] * attention_scores[:, 3, :]
+        task_out = weighted_gate_1_out + weighted_gate_2_out + weighted_gate_3_out + weighted_gate_share_out
+        task_out = task_out.unsqueeze(1).expand(-1, 100, -1)  # (batch_size, 100, feature_dim)
+
+        
+        return task_out
+
+
+class HierarchicalAttentionLayer(nn.Module):
+    def __init__(self, hidden_size, low_rank, gate_v, gate_t):
+        super().__init__()
+        self.gate_v = gate_v
+        self.gate_t = gate_t
+
+        self.low_rank_layer = nn.Linear(hidden_size, hidden_size // low_rank)
+        self.low_rank_layer1 = nn.Linear(hidden_size // low_rank, hidden_size)
+
+        self.transformer = nn.TransformerEncoderLayer(
+            d_model=hidden_size // low_rank,
+            nhead=4,
+            dim_feedforward=hidden_size // low_rank
+        )
+
+    def global_embeddings(self, x):
+        x = self.low_rank_layer(x.transpose(0, 1))      # [L, B, R]
+        x = self.transformer(x)                         # [L, B, R]
+        x = self.low_rank_layer1(x.transpose(0, 1))     # [B, L, D]
+        return x
+
+    def forward(self, id_feat, img_feat, txt_feat):
+        global_id = self.global_embeddings(id_feat)
+        global_img = self.global_embeddings(img_feat)
+        global_txt = self.global_embeddings(txt_feat)
+
+        img_refined = (
+            torch.multiply(img_feat, self.gate_v(id_feat)) +
+            torch.multiply(global_img, self.gate_v(global_id))
+        )
+        txt_refined = (
+            torch.multiply(txt_feat, self.gate_v(id_feat)) +
+            torch.multiply(global_txt, self.gate_t(global_id))
+        )
+
+        out = id_feat + img_refined + txt_refined
+        return out
+
+MODULE_NAMES = ["filter", "fusion", "attention"]
+
+class ModuleRouter(nn.Module):
+    def __init__(self, input_dim):
+        super().__init__()
+        self.pool = nn.AdaptiveAvgPool1d(1)
+        self.linear = nn.Linear(input_dim * 3, 3)  # 输出3个模块的分数
+
+    def forward(self, id_feat, img_feat, txt_feat):
+        pooled = torch.cat([
+            self.pool(id_feat.transpose(1, 2)).squeeze(-1),
+            self.pool(img_feat.transpose(1, 2)).squeeze(-1),
+            self.pool(txt_feat.transpose(1, 2)).squeeze(-1)
+        ], dim=-1)
+        logits = self.linear(pooled)  # [B, 3]
+        sorted_indices = torch.argsort(logits.mean(dim=0), descending=True)
+        module_order = [MODULE_NAMES[i] for i in sorted_indices.tolist()]
+        print(f"[Router] Module execution order: {module_order}")
+        return module_order
+
+
+
+
+
 
 
 class DistSAModel(nn.Module):
@@ -304,14 +454,55 @@ class DistSAModel(nn.Module):
             nn.Softmax(dim=2)
         )
 
+        self.multi_scale_fusion_mean = MultiScaleFusionLayer(
+            hidden_size=args.hidden_size,
+            low_rank=args.low_rank,
+            num_shared_experts=args.num_shared_experts,
+            num_specific_experts=args.num_specific_experts,
+            experts_shared=self.experts_shared_mean,
+            experts_task1=self.experts_task1_mean,
+            experts_task2=self.experts_task2_mean,
+            experts_task3=self.experts_task3_mean,
+            dnn_share=self.dnn_share_mean,
+            dnn1=self.dnn1_mean,
+            dnn2=self.dnn2_mean,
+            dnn3=self.dnn3_mean,
+            attention_layer=self.attention_layer
+        )
+
+        self.multi_scale_fusion_cov = MultiScaleFusionLayer(
+            hidden_size=args.hidden_size,
+            low_rank=args.low_rank,
+            num_shared_experts=args.num_shared_experts,
+            num_specific_experts=args.num_specific_experts,
+            experts_shared=self.experts_shared_cov,
+            experts_task1=self.experts_task1_cov,
+            experts_task2=self.experts_task2_cov,
+            experts_task3=self.experts_task3_cov,
+            dnn_share=self.dnn_share_cov,
+            dnn1=self.dnn1_cov,
+            dnn2=self.dnn2_cov,
+            dnn3=self.dnn3_cov,
+            attention_layer=self.attention_layer
+        )
+
+        self.hierarchical_attention = HierarchicalAttentionLayer(
+            hidden_size=args.hidden_size,
+            low_rank=args.low_rank,
+            gate_v=self.gate_v,
+            gate_t=self.gate_t
+        )
+
         self.item_filter = FilterLayer(hidden_size=args.hidden_size, num_layers=self.num_layers)
         self.image_filter = FilterLayer(hidden_size=args.hidden_size, num_layers=self.num_layers)
         self.text_filter = FilterLayer(hidden_size=args.hidden_size, num_layers=self.num_layers)
 
+        self.module_router = ModuleRouter(args.hidden_size)
+
         self.apply(self.init_weights)
 
         print("----------start loading multi_modality -----------")
-        # self.replace_embedding()
+        self.replace_embedding()
 
     
 
@@ -323,7 +514,7 @@ class DistSAModel(nn.Module):
         self.text_mean_embeddings.weight.data[1:-1, :] = text_features_list
         self.text_cov_embeddings.weight.data[1:-1, :] = text_features_list
 
-    def add_position_mean_embedding(self, sequence, remove_image, remove_text):
+    def add_position_mean_embedding(self, sequence):
         seq_length = sequence.size(1)
         position_ids = torch.arange(seq_length, dtype=torch.long, device=sequence.device)
         position_ids = position_ids.unsqueeze(0).expand_as(sequence)
@@ -333,82 +524,36 @@ class DistSAModel(nn.Module):
         item_image_embeddings = self.fc_mean_image(self.image_mean_embeddings(sequence))
         item_text_embeddings = self.fc_mean_text(self.text_mean_embeddings(sequence))
 
-        item_embeddings = self.item_filter(item_embeddings)
 
-        # Multi-scale Multimodal Fusion Layer
-        if self.args.is_use_mm:
+        # # === Frequency Filter Layerr ===
+        # item_embeddings = self.item_filter(item_embeddings)
 
-            if self.args.is_use_cross:
-                x = torch.cat([item_embeddings, item_image_embeddings, item_text_embeddings], axis=-1)
+        # # === Multi-Scale Fusion Layer ===
+        # if self.args.is_use_mm and self.args.is_use_cross:
+        #     task_out = self.multi_scale_fusion_mean(item_embeddings, item_image_embeddings, item_text_embeddings)
+        #     item_embeddings = item_embeddings + item_image_embeddings + item_text_embeddings + task_out
+        # elif self.args.is_use_mm:
+        #     item_embeddings = item_embeddings + item_image_embeddings + item_text_embeddings
+        # elif self.args.is_use_text:
+        #     item_embeddings = item_embeddings + item_text_embeddings
+        # elif self.args.is_use_image:
+        #     item_embeddings = item_embeddings + item_image_embeddings
 
-                experts_shared_o = [e(x) for e in self.experts_shared_mean]
-                experts_shared_o = torch.stack(experts_shared_o)
-                experts_shared_o = experts_shared_o.squeeze()
+        # # === Hierarchical Attention Layer ===
+        # item_embeddings = self.hierarchical_attention(item_embeddings, item_image_embeddings, item_text_embeddings)
 
-                # gate_share
-                selected_s = self.dnn_share_mean(x)
-                gate_share_out = torch.einsum('abcd, bca -> bcd', experts_shared_o, selected_s)
+        # 路由器选择执行顺序
+        module_order = self.module_router(item_embeddings, item_image_embeddings, item_text_embeddings)
 
-                experts_task1_o = [e(item_embeddings + gate_share_out) for e in self.experts_task1_mean]
-                experts_task1_o = torch.stack(experts_task1_o)
-                experts_task2_o = [e(item_image_embeddings + gate_share_out) for e in self.experts_task2_mean]
-                experts_task2_o = torch.stack(experts_task2_o)
-                experts_task3_o = [e(item_text_embeddings + gate_share_out) for e in self.experts_task3_mean]
-                experts_task3_o = torch.stack(experts_task3_o)
-
-                # experts_shared_o = experts_shared_o.squeeze()
-                experts_task1_o = experts_task1_o.squeeze()
-                experts_task2_o = experts_task2_o.squeeze()
-                experts_task3_o = experts_task3_o.squeeze()
-
-                # gate1
-                selected1 = self.dnn1_mean(item_embeddings)
-                gate_1_out = torch.einsum('abcd, bca -> bcd', experts_task1_o, selected1)
-
-                # gate2
-                selected2 = self.dnn2_mean(item_image_embeddings)
-                gate_2_out = torch.einsum('abcd, bca -> bcd', experts_task2_o, selected2)
-
-                # gate3
-                selected3 = self.dnn3_mean(item_text_embeddings)
-                gate_3_out = torch.einsum('abcd, bca -> bcd', experts_task3_o, selected3)
-
-                # gather
-                combined_gate_outputs = torch.cat([gate_1_out, gate_2_out, gate_3_out, gate_share_out], dim=-1)
-                attention_scores = self.attention_layer(combined_gate_outputs)
-                attention_scores = F.softmax(attention_scores, dim=-1)
-                weighted_gate_1_out = gate_1_out[:, 0, :] * attention_scores[:, 0, :]
-                weighted_gate_2_out = gate_2_out[:, 0, :] * attention_scores[:, 1, :]
-                weighted_gate_3_out = gate_3_out[:, 0, :] * attention_scores[:, 2, :]
-                weighted_gate_share_out = gate_share_out[:, 0, :] * attention_scores[:, 3, :]
-                task_out = weighted_gate_1_out + weighted_gate_2_out + weighted_gate_3_out + weighted_gate_share_out
-                task_out = task_out.unsqueeze(1).expand(-1, 100, -1)  # (batch_size, 100, feature_dim)
-
-                item_embeddings = item_embeddings + item_image_embeddings + item_text_embeddings + task_out
-
-            else:
-                item_embeddings = item_embeddings + item_image_embeddings + item_text_embeddings
-
-        elif self.args.is_use_text:
-            item_embeddings = item_embeddings + item_text_embeddings
-        elif self.args.is_use_image:
-            item_embeddings = item_embeddings + item_image_embeddings
+        # 模块执行
+        modules = {
+            "filter": self.item_filter,
+            "fusion": self.multi_scale_fusion_mean,
+            "attention": self.hierarchical_attention
+        }
+        item_embeddings = apply_modules_in_order(modules, module_order, item_embeddings, item_image_embeddings, item_text_embeddings)
 
 
-        # Multi-view Multimodal Refine Layer
-        item_global_embeddings = global_embeddings(self, item_embeddings)
-        item_image_global_embeddings = global_embeddings(self, item_image_embeddings)
-        item_text_global_embeddings = global_embeddings(self, item_text_embeddings)
-
-        item_image_embeddings = (torch.multiply(item_image_embeddings, self.gate_v(item_embeddings))
-                                + torch.multiply(item_image_global_embeddings, self.gate_v(item_global_embeddings)))
-
-        item_text_embeddings = (torch.multiply(item_text_embeddings, self.gate_v(item_embeddings))
-                                + torch.multiply(item_text_global_embeddings, self.gate_t(item_global_embeddings)))
-
-        item_embeddings = item_embeddings + item_image_embeddings + item_text_embeddings + task_out   
-
-        item_embeddings = self.item_filter(item_embeddings)
         
         sequence_emb = item_embeddings + position_embeddings
         sequence_emb = self.LayerNorm(sequence_emb)
@@ -418,7 +563,7 @@ class DistSAModel(nn.Module):
 
         return sequence_emb
 
-    def add_position_cov_embedding(self, sequence, remove_image, remove_text):
+    def add_position_cov_embedding(self, sequence):
         seq_length = sequence.size(1)
         position_ids = torch.arange(seq_length, dtype=torch.long, device=sequence.device)
         position_ids = position_ids.unsqueeze(0).expand_as(sequence)
@@ -428,102 +573,22 @@ class DistSAModel(nn.Module):
         item_image_embeddings = self.fc_cov_image(self.image_cov_embeddings(sequence))
         item_text_embeddings = self.fc_cov_text(self.text_cov_embeddings(sequence))
 
-        
-
-        # Multi-view Multimodal Refine Layer
-        item_global_embeddings = global_embeddings(self, item_embeddings)
-        item_image_global_embeddings = global_embeddings(self, item_image_embeddings)
-        item_text_global_embeddings = global_embeddings(self, item_text_embeddings)
-
-        item_image_embeddings = (torch.multiply(item_image_embeddings, self.gate_v(item_embeddings))
-                                 + torch.multiply(item_image_global_embeddings,
-                                                  self.gate_v(item_global_embeddings)))
-
-        item_text_embeddings = (torch.multiply(item_text_embeddings, self.gate_v(item_embeddings))
-                                + torch.multiply(item_text_global_embeddings,
-                                                 self.gate_t(item_global_embeddings)))
-
+        # === Frequency Filter Layerr ===
         item_embeddings = self.item_filter(item_embeddings)
-        
-        # Multi-scale Multimodal Fusion Layer
-        if self.args.is_use_mm:
 
-            if self.args.is_use_cross:
-                # print("use cross")
-
-                x = torch.cat([item_embeddings, item_image_embeddings, item_text_embeddings], axis=-1)
-
-                # share 
-                experts_shared_o = [e(x) for e in self.experts_shared_cov]
-                experts_shared_o = torch.stack(experts_shared_o)
-                experts_shared_o = experts_shared_o.squeeze()
-
-                selected_s = self.dnn_share_cov(x)
-                gate_share_out = torch.einsum('abcd, bca -> bcd', experts_shared_o, selected_s)
-
-                # modality
-                experts_task1_o = [e(item_embeddings + gate_share_out) for e in self.experts_task1_cov]
-                experts_task1_o = torch.stack(experts_task1_o)
-                experts_task2_o = [e(item_image_embeddings + gate_share_out) for e in self.experts_task2_cov]
-                experts_task2_o = torch.stack(experts_task2_o)
-                experts_task3_o = [e(item_text_embeddings + gate_share_out) for e in self.experts_task3_cov]
-                experts_task3_o = torch.stack(experts_task3_o)
-
-                experts_task1_o = experts_task1_o.squeeze()
-                experts_task2_o = experts_task2_o.squeeze()
-                experts_task3_o = experts_task3_o.squeeze()
-
-                # gate1
-                selected1 = self.dnn1_cov(item_embeddings)  # (256,100,2)
-                gate_1_out = torch.einsum('abcd, bca -> bcd', experts_task1_o, selected1)  # (256,100,64)
-
-                # gate2
-                selected2 = self.dnn2_cov(item_image_embeddings)
-                gate_2_out = torch.einsum('abcd, bca -> bcd', experts_task2_o, selected2)
-
-                # gate3
-                selected3 = self.dnn3_cov(item_text_embeddings)
-                gate_3_out = torch.einsum('abcd, bca -> bcd', experts_task3_o, selected3)
-
-                # gather
-                combined_gate_outputs = torch.cat([gate_1_out, gate_2_out, gate_3_out, gate_share_out], dim=-1)
-
-                attention_scores = self.attention_layer(combined_gate_outputs)
-
-                attention_scores = F.softmax(attention_scores, dim=-1)
-
-                weighted_gate_1_out = gate_1_out[:, 0, :] * attention_scores[:, 0, :]
-                weighted_gate_2_out = gate_2_out[:, 0, :] * attention_scores[:, 1, :]
-                weighted_gate_3_out = gate_3_out[:, 0, :] * attention_scores[:, 2, :]
-                weighted_gate_share_out = gate_share_out[:, 0, :] * attention_scores[:, 3, :]
-                task_out = weighted_gate_1_out + weighted_gate_2_out + weighted_gate_3_out + weighted_gate_share_out
-                task_out = task_out.unsqueeze(1).expand(-1, 100, -1)  # (batch_size, 100, feature_dim)
-
-                item_embeddings = item_embeddings + item_image_embeddings + item_text_embeddings + task_out                                     
-
-            else:
-                # print("use mm")
-                item_embeddings = item_embeddings + item_image_embeddings + item_text_embeddings
-
+        # === Multi-Scale Fusion Layer ===
+        if self.args.is_use_mm and self.args.is_use_cross:
+            task_out = self.multi_scale_fusion_cov(item_embeddings, item_image_embeddings, item_text_embeddings)
+            item_embeddings = item_embeddings + item_image_embeddings + item_text_embeddings + task_out
+        elif self.args.is_use_mm:
+            item_embeddings = item_embeddings + item_image_embeddings + item_text_embeddings
         elif self.args.is_use_text:
             item_embeddings = item_embeddings + item_text_embeddings
         elif self.args.is_use_image:
             item_embeddings = item_embeddings + item_image_embeddings
 
-        # item_embeddings = self.item_filter(item_embeddings)
-        
-        # Multi-view Multimodal Refine Layer
-        item_global_embeddings = global_embeddings(self, item_embeddings)
-        item_image_global_embeddings = global_embeddings(self, item_image_embeddings)
-        item_text_global_embeddings = global_embeddings(self, item_text_embeddings)
-
-        item_image_embeddings = (torch.multiply(item_image_embeddings, self.gate_v(item_embeddings))
-                                + torch.multiply(item_image_global_embeddings, self.gate_v(item_global_embeddings)))
-
-        item_text_embeddings = (torch.multiply(item_text_embeddings, self.gate_v(item_embeddings))
-                                + torch.multiply(item_text_global_embeddings, self.gate_t(item_global_embeddings)))
-
-        item_embeddings = self.item_filter(item_embeddings) 
+        # === Hierarchical Attention Layer ===
+        item_embeddings = self.hierarchical_attention(item_embeddings, item_image_embeddings, item_text_embeddings)
 
         sequence_emb = item_embeddings + position_embeddings
         sequence_emb = self.LayerNorm(sequence_emb)
@@ -533,7 +598,7 @@ class DistSAModel(nn.Module):
 
         return sequence_emb
 
-    def finetune(self, input_ids, user_ids, remove_image, remove_text):
+    def finetune(self, input_ids, user_ids):
         attention_mask = (input_ids > 0).long()
         extended_attention_mask = attention_mask.unsqueeze(1).unsqueeze(2)  # torch.int64
         max_len = attention_mask.size(-1)
@@ -549,8 +614,8 @@ class DistSAModel(nn.Module):
         extended_attention_mask = extended_attention_mask.to(dtype=next(self.parameters()).dtype)  # fp16 compatibility
         extended_attention_mask = (1.0 - extended_attention_mask) * (-2 ** 32 + 1)
 
-        mean_sequence_emb = self.add_position_mean_embedding(input_ids, remove_image=remove_image, remove_text=remove_text)
-        cov_sequence_emb = self.add_position_cov_embedding(input_ids, remove_image=remove_image, remove_text=remove_text)
+        mean_sequence_emb = self.add_position_mean_embedding(input_ids)
+        cov_sequence_emb = self.add_position_cov_embedding(input_ids)
 
 
         item_encoded_layers = self.item_encoder(mean_sequence_emb,
