@@ -277,24 +277,41 @@ class HierarchicalAttentionLayer(nn.Module):
 
 MODULE_NAMES = ["filter", "fusion", "attention"]
 
+
 class ModuleRouter(nn.Module):
+    """
+    Automatically determines execution order of modules (filter, fusion, attention)
+    based on average modal features. Only used once per dataset.
+    """
     def __init__(self, input_dim):
         super().__init__()
         self.pool = nn.AdaptiveAvgPool1d(1)
-        self.linear = nn.Linear(input_dim * 3, 3)  # 输出3个模块的分数
+        self.linear = nn.Linear(input_dim * 3, 3)  # Predict score for each module
 
     def forward(self, id_feat, img_feat, txt_feat):
-        pooled = torch.cat([
-            self.pool(id_feat.transpose(1, 2)).squeeze(-1),
-            self.pool(img_feat.transpose(1, 2)).squeeze(-1),
-            self.pool(txt_feat.transpose(1, 2)).squeeze(-1)
-        ], dim=-1)
-        logits = self.linear(pooled)  # [B, 3]
-        sorted_indices = torch.argsort(logits.mean(dim=0), descending=True)
-        module_order = [MODULE_NAMES[i] for i in sorted_indices.tolist()]
-        print(f"[Router] Module execution order: {module_order}")
-        return module_order
+        """
+        Args:
+            id_feat:   [B, L, D]
+            img_feat:  [B, L, D]
+            txt_feat:  [B, L, D]
 
+        Returns:
+            A fixed order list of module names, e.g., ['fusion', 'filter', 'attention']
+        """
+        # [B, D] → 特征池化得到单个表示向量
+        pooled_id = self.pool(id_feat.transpose(1, 2)).squeeze(-1)   # [B, D]
+        pooled_img = self.pool(img_feat.transpose(1, 2)).squeeze(-1) # [B, D]
+        pooled_txt = self.pool(txt_feat.transpose(1, 2)).squeeze(-1) # [B, D]
+
+        # 拼接模态特征
+        combined = torch.cat([pooled_id, pooled_img, pooled_txt], dim=-1)  # [B, 3D]
+        scores = self.linear(combined)  # [B, 3]
+
+        # 平均所有样本的排序结果（全局决定）
+        avg_score = scores.mean(dim=0)  # [3]
+        sorted_indices = torch.argsort(avg_score, descending=True)  # 排序模块索引
+
+        return [MODULE_NAMES[i] for i in sorted_indices.tolist()]
 
 
 
@@ -498,6 +515,8 @@ class DistSAModel(nn.Module):
         self.text_filter = FilterLayer(hidden_size=args.hidden_size, num_layers=self.num_layers)
 
         self.module_router = ModuleRouter(args.hidden_size)
+        self.module_order = None  # Will be set during first add_position_* call
+
 
         self.apply(self.init_weights)
 
@@ -513,6 +532,20 @@ class DistSAModel(nn.Module):
         self.image_cov_embeddings.weight.data[1:-1, :] = image_features_list
         self.text_mean_embeddings.weight.data[1:-1, :] = text_features_list
         self.text_cov_embeddings.weight.data[1:-1, :] = text_features_list
+
+
+    def apply_modules_in_order(self, modules_dict, order, item_embeddings, img_feat, txt_feat):
+        task_out = None
+        for name in order:
+            if name == "filter":
+                item_embeddings = modules_dict["filter"](item_embeddings)
+            elif name == "fusion":
+                task_out = modules_dict["fusion"](item_embeddings, img_feat, txt_feat)
+                item_embeddings = item_embeddings + img_feat + txt_feat + task_out
+            elif name == "attention":
+                item_embeddings = modules_dict["attention"](item_embeddings, img_feat, txt_feat)
+        return item_embeddings
+
 
     def add_position_mean_embedding(self, sequence):
         seq_length = sequence.size(1)
@@ -542,17 +575,21 @@ class DistSAModel(nn.Module):
         # # === Hierarchical Attention Layer ===
         # item_embeddings = self.hierarchical_attention(item_embeddings, item_image_embeddings, item_text_embeddings)
 
-        # 路由器选择执行顺序
-        module_order = self.module_router(item_embeddings, item_image_embeddings, item_text_embeddings)
+        if self.module_order is None:
+            self.module_order = self.module_router(item_embeddings, item_image_embeddings, item_text_embeddings)
+            print("===> Selected Module Order:", self.module_order)
 
-        # 模块执行
-        modules = {
-            "filter": self.item_filter,
-            "fusion": self.multi_scale_fusion_mean,
-            "attention": self.hierarchical_attention
-        }
-        item_embeddings = apply_modules_in_order(modules, module_order, item_embeddings, item_image_embeddings, item_text_embeddings)
-
+        item_embeddings = self.apply_modules_in_order(
+            modules_dict={
+                "filter": self.item_filter,
+                "fusion": self.multi_scale_fusion_mean,
+                "attention": self.hierarchical_attention
+            },
+            order=self.module_order,
+            item_embeddings=item_embeddings,
+            img_feat=item_image_embeddings,
+            txt_feat=item_text_embeddings
+        )
 
         
         sequence_emb = item_embeddings + position_embeddings
