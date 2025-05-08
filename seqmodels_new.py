@@ -93,54 +93,45 @@ class Expert(nn.Module):
         out = self.fc2(out)
         return out
     
-
+    
 class FilterLayer(nn.Module):
-    def __init__(self, hidden_size, num_layers=2, dropout_prob=0.1):
+    def __init__(self, hidden_size, num_layers=1, dropout_prob=0.1, ratio=0.8):
         super(FilterLayer, self).__init__()
         self.num_layers = num_layers
-
-        
+        self.ratio = ratio
         self.filter_layers = nn.ModuleList([
             nn.Sequential(
-                nn.LayerNorm(hidden_size, eps=1e-12),
-                nn.Dropout(dropout_prob)
+                nn.Dropout(dropout_prob),
+                nn.LayerNorm(hidden_size, eps=1e-12)
             )
             for _ in range(num_layers)
         ])
 
-        
-        self.complex_weights = None
-
-    def initialize_weights(self, seq_len, hidden_size, device):
-        
-        freq_dim = seq_len // 2 + 1
-        self.complex_weights = nn.ParameterList([
-            nn.Parameter(
-                torch.randn(1, freq_dim, hidden_size, dtype=torch.cfloat, device = device) * 0.02
-            )
-            for _ in range(self.num_layers)
-        ])
-    def forward(self, x, q=0.8):
+    def forward(self, x):
         batch, seq_len, hidden_size = x.shape
-        
-        if self.complex_weights is None:
-            self.initialize_weights(seq_len, hidden_size, device=x.device)
 
         for layer_idx in range(self.num_layers):
-            fft_x = torch.fft.rfft(x, dim=1, norm="ortho")
+            # 1. 频域变换
+            fft_x = torch.fft.rfft(x, dim=1, norm='ortho')  # shape: [B, F, D]
 
-            weight = self.complex_weights[layer_idx]
-            fft_x = fft_x * weight
+            # 2. 构造频率选择 mask
+            freqs = torch.fft.rfftfreq(seq_len).to(x.device)  # shape: [F]
+            mask = freqs < freqs.quantile(self.ratio).item()  # shape: [F]
+            # shape: [F, D] -> broadcast to all dims
+            mask = torch.outer(mask, torch.ones(hidden_size, device=x.device))  # [F, D]
+            mask = mask.unsqueeze(0)  # [1, F, D]
 
-            fft_magnitude = torch.abs(fft_x)  
-            q_value = torch.quantile(fft_magnitude.reshape(-1), q)  
-            # print(f"Layer {layer_idx + 1}, q-{q} quantile: {q_value.item()}")  
+            # 3. 应用 mask
+            fft_x = fft_x * mask
 
-            x_fft_filtered = torch.fft.irfft(fft_x, n=seq_len, dim=1, norm="ortho")
+            # 4. 反变换
+            filtered_x = torch.fft.irfft(fft_x, n=seq_len, dim=1, norm='ortho')  # [B, T, D]
 
-            x = self.filter_layers[layer_idx](x_fft_filtered) + x
+            # 5. Dropout + LayerNorm + 残差
+            x = self.filter_layers[layer_idx](filtered_x) + x
 
         return x
+
 
 
 class MultiScaleFusionLayer(nn.Module):
@@ -275,45 +266,59 @@ class HierarchicalAttentionLayer(nn.Module):
         out = id_feat + img_refined + txt_refined
         return out
 
+
+class MutualInformationLoss(nn.Module):
+    """
+    Compute mutual information loss to encourage diverse routing decisions.
+    """
+    def __init__(self, epsilon=1e-10):
+        super(MutualInformationLoss, self).__init__()
+        self.epsilon = epsilon
+
+    def forward(self, phi: torch.Tensor) -> torch.Tensor:
+        B, M, N, P = phi.shape
+        phi = phi.reshape(B, M * N * P)
+        phi = F.softmax(phi, dim=1)
+        phi = phi.reshape(B, M, N, P)
+
+        p_m = phi.sum(dim=(2, 3))  # [B, M]
+        p_t = phi.sum(dim=(1, 2))  # [B, P]
+        p_mt = phi.sum(dim=2)      # [B, M, P]
+
+        denominator = p_m.unsqueeze(2) * p_t.unsqueeze(1)  # [B, M, P]
+        numerator = p_mt
+
+        log_term = torch.log((numerator + self.epsilon) / (denominator + self.epsilon))
+        mutual_info = torch.sum(p_mt * log_term, dim=(0, 1, 2))
+
+        return -mutual_info
+
+
 MODULE_NAMES = ["filter", "fusion", "attention"]
 
-
 class ModuleRouter(nn.Module):
-    """
-    Automatically determines execution order of modules (filter, fusion, attention)
-    based on average modal features. Only used once per dataset.
-    """
     def __init__(self, input_dim):
         super().__init__()
         self.pool = nn.AdaptiveAvgPool1d(1)
-        self.linear = nn.Linear(input_dim * 3, 3)  # Predict score for each module
+        self.linear = nn.Linear(input_dim * 3, 3)
+        self.mi_criterion = MutualInformationLoss()
+        self.mi_loss = None
 
     def forward(self, id_feat, img_feat, txt_feat):
-        """
-        Args:
-            id_feat:   [B, L, D]
-            img_feat:  [B, L, D]
-            txt_feat:  [B, L, D]
+        pooled_id = self.pool(id_feat.transpose(1, 2)).squeeze(-1)
+        pooled_img = self.pool(img_feat.transpose(1, 2)).squeeze(-1)
+        pooled_txt = self.pool(txt_feat.transpose(1, 2)).squeeze(-1)
 
-        Returns:
-            A fixed order list of module names, e.g., ['fusion', 'filter', 'attention']
-        """
-        # [B, D] → 特征池化得到单个表示向量
-        pooled_id = self.pool(id_feat.transpose(1, 2)).squeeze(-1)   # [B, D]
-        pooled_img = self.pool(img_feat.transpose(1, 2)).squeeze(-1) # [B, D]
-        pooled_txt = self.pool(txt_feat.transpose(1, 2)).squeeze(-1) # [B, D]
-
-        # 拼接模态特征
         combined = torch.cat([pooled_id, pooled_img, pooled_txt], dim=-1)  # [B, 3D]
-        scores = self.linear(combined)  # [B, 3]
+        logits = self.linear(combined)  # [B, 3]
 
-        # 平均所有样本的排序结果（全局决定）
-        avg_score = scores.mean(dim=0)  # [3]
-        sorted_indices = torch.argsort(avg_score, descending=True)  # 排序模块索引
+        # === 计算互信息损失 ===
+        phi = F.softmax(logits, dim=-1).reshape(-1, 1, 1, 3)
+        self.mi_loss = self.mi_criterion(phi.detach())
 
+        avg_score = logits.mean(dim=0)  # [3]
+        sorted_indices = torch.argsort(avg_score, descending=True)
         return [MODULE_NAMES[i] for i in sorted_indices.tolist()]
-
-
 
 
 
@@ -331,6 +336,7 @@ class DistSAModel(nn.Module):
         self.dropout = nn.Dropout(args.hidden_dropout_prob)
         self.args = args
         self.num_layers = 1
+        self.alpha = 1
 
         low_rank = args.low_rank
         self.transformer = nn.TransformerEncoderLayer(
@@ -538,7 +544,10 @@ class DistSAModel(nn.Module):
         task_out = None
         for name in order:
             if name == "filter":
-                item_embeddings = modules_dict["filter"](item_embeddings)
+                id_feat = modules_dict["filter"](item_embeddings)
+                img_feat = modules_dict["filter"](img_feat)
+                txt_feat = modules_dict["filter"](txt_feat)
+                item_embeddings = item_embeddings + img_feat + txt_feat + id_feat
             elif name == "fusion":
                 task_out = modules_dict["fusion"](item_embeddings, img_feat, txt_feat)
                 item_embeddings = item_embeddings + img_feat + txt_feat + task_out
@@ -546,6 +555,10 @@ class DistSAModel(nn.Module):
                 item_embeddings = modules_dict["attention"](item_embeddings, img_feat, txt_feat)
         return item_embeddings
 
+    def get_module_routing_loss(self):
+            if hasattr(self, "module_router") and self.module_router.mi_loss is not None:
+                return self.module_router.mi_loss
+            return torch.tensor(0.0, device=next(self.parameters()).device)
 
     def add_position_mean_embedding(self, sequence):
         seq_length = sequence.size(1)
@@ -556,24 +569,6 @@ class DistSAModel(nn.Module):
         item_embeddings = self.item_mean_embeddings(sequence)  # (256,100,64)
         item_image_embeddings = self.fc_mean_image(self.image_mean_embeddings(sequence))
         item_text_embeddings = self.fc_mean_text(self.text_mean_embeddings(sequence))
-
-
-        # # === Frequency Filter Layerr ===
-        # item_embeddings = self.item_filter(item_embeddings)
-
-        # # === Multi-Scale Fusion Layer ===
-        # if self.args.is_use_mm and self.args.is_use_cross:
-        #     task_out = self.multi_scale_fusion_mean(item_embeddings, item_image_embeddings, item_text_embeddings)
-        #     item_embeddings = item_embeddings + item_image_embeddings + item_text_embeddings + task_out
-        # elif self.args.is_use_mm:
-        #     item_embeddings = item_embeddings + item_image_embeddings + item_text_embeddings
-        # elif self.args.is_use_text:
-        #     item_embeddings = item_embeddings + item_text_embeddings
-        # elif self.args.is_use_image:
-        #     item_embeddings = item_embeddings + item_image_embeddings
-
-        # # === Hierarchical Attention Layer ===
-        # item_embeddings = self.hierarchical_attention(item_embeddings, item_image_embeddings, item_text_embeddings)
 
         if self.module_order is None:
             self.module_order = self.module_router(item_embeddings, item_image_embeddings, item_text_embeddings)
@@ -591,7 +586,6 @@ class DistSAModel(nn.Module):
             txt_feat=item_text_embeddings
         )
 
-        
         sequence_emb = item_embeddings + position_embeddings
         sequence_emb = self.LayerNorm(sequence_emb)
         sequence_emb = self.dropout(sequence_emb)
@@ -610,29 +604,29 @@ class DistSAModel(nn.Module):
         item_image_embeddings = self.fc_cov_image(self.image_cov_embeddings(sequence))
         item_text_embeddings = self.fc_cov_text(self.text_cov_embeddings(sequence))
 
-        # === Frequency Filter Layerr ===
-        item_embeddings = self.item_filter(item_embeddings)
+        if self.module_order is None:
+            self.module_order = self.module_router(item_embeddings, item_image_embeddings, item_text_embeddings)
+            print("===> Selected Module Order:", self.module_order)
 
-        # === Multi-Scale Fusion Layer ===
-        if self.args.is_use_mm and self.args.is_use_cross:
-            task_out = self.multi_scale_fusion_cov(item_embeddings, item_image_embeddings, item_text_embeddings)
-            item_embeddings = item_embeddings + item_image_embeddings + item_text_embeddings + task_out
-        elif self.args.is_use_mm:
-            item_embeddings = item_embeddings + item_image_embeddings + item_text_embeddings
-        elif self.args.is_use_text:
-            item_embeddings = item_embeddings + item_text_embeddings
-        elif self.args.is_use_image:
-            item_embeddings = item_embeddings + item_image_embeddings
+        item_embeddings = self.apply_modules_in_order(
+            modules_dict={
+                "filter": self.item_filter,
+                "fusion": self.multi_scale_fusion_cov,
+                "attention": self.hierarchical_attention
+            },
+            order=self.module_order,
+            item_embeddings=item_embeddings,
+            img_feat=item_image_embeddings,
+            txt_feat=item_text_embeddings
+        )
 
-        # === Hierarchical Attention Layer ===
-        item_embeddings = self.hierarchical_attention(item_embeddings, item_image_embeddings, item_text_embeddings)
 
         sequence_emb = item_embeddings + position_embeddings
         sequence_emb = self.LayerNorm(sequence_emb)
         sequence_emb = self.dropout(sequence_emb)
         elu_act = torch.nn.ELU()
         sequence_emb = elu_act(self.dropout(sequence_emb)) + 1
-
+        
         return sequence_emb
 
     def finetune(self, input_ids, user_ids):
@@ -653,8 +647,9 @@ class DistSAModel(nn.Module):
 
         mean_sequence_emb = self.add_position_mean_embedding(input_ids)
         cov_sequence_emb = self.add_position_cov_embedding(input_ids)
-
-
+        
+        mi_loss = self.get_module_routing_loss()
+        
         item_encoded_layers = self.item_encoder(mean_sequence_emb,
                                                 cov_sequence_emb,
                                                 extended_attention_mask,
@@ -664,7 +659,7 @@ class DistSAModel(nn.Module):
 
         margins = self.user_margins(user_ids)
 
-        return mean_sequence_output, cov_sequence_output, att_scores, margins
+        return mean_sequence_output, cov_sequence_output, att_scores, margins, mi_loss
 
     def init_weights(self, module):
         if isinstance(module, (nn.Linear, nn.Embedding)):
