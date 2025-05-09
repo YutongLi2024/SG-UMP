@@ -12,7 +12,7 @@ import time
 import os
 
 base_dir = os.path.dirname(os.path.abspath(__file__))  
-data_name = 'Beauty'
+data_name = 'Home'
 
 
 def main():
@@ -54,6 +54,13 @@ def main():
     parser.add_argument('--low_rank', default=4, type=int, help="low_rank matrix")
     parser.add_argument('--global_transformer_nhead', default=4, type=int)
     parser.add_argument("--prediction", type=bool, default=False, help="activate prediction mode")
+    parser.add_argument(
+        "--manual_module_order",
+        nargs='+',  # 接收一个或多个字符串参数
+        default=["filter", "attention", "fusion"],  # 默认顺序
+        help="Specify manual module order, e.g., --manual_module_order filter fusion attention"
+    )
+
 
     # train args
     parser.add_argument("--lr", type=float, default=0.001, help="learning rate of adam")
@@ -84,7 +91,9 @@ def main():
     args.mask_id = max_item + 1
 
     # save model args
-    args_str = f'{args.model_name}-{args.data_name}-{args.hidden_size}-{args.num_hidden_layers}-{args.num_attention_heads}-{args.hidden_act}-{args.attention_probs_dropout_prob}-{args.hidden_dropout_prob}-{args.max_seq_length}-{args.lr}-{args.weight_decay}-{args.ckp}-{args.kernel_param}-{args.pvn_weight}'
+    # args_str = f'{args.model_name}-{args.data_name}-{args.hidden_size}-{args.num_hidden_layers}-{args.num_attention_heads}-{args.hidden_act}-{args.attention_probs_dropout_prob}-{args.hidden_dropout_prob}-{args.max_seq_length}-{args.lr}-{args.weight_decay}-{args.ckp}-{args.kernel_param}-{args.pvn_weight}'
+    order_str = "auto" if args.manual_module_order is None else "_".join(args.manual_module_order)
+    args_str = f'{args.model_name}-{args.data_name}-{args.num_shared_experts}-{args.num_specific_experts}-order-{order_str}'
     args.log_file = os.path.join(args.output_dir, args_str + '.txt')
     print(str(args))
     with open(args.log_file, 'a') as f:

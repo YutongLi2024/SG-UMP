@@ -571,14 +571,20 @@ class DistSAModel(nn.Module):
         item_image_embeddings = self.fc_mean_image(self.image_mean_embeddings(sequence))
         item_text_embeddings = self.fc_mean_text(self.text_mean_embeddings(sequence))
 
+        # 手动顺序优先，否则使用 module_router 自动生成
         if self.module_order is None:
-            self.module_order = self.module_router(item_embeddings, item_image_embeddings, item_text_embeddings)
-            print("===> Selected Module Order:", self.module_order)
-            # 打印并写入日志
-            if not self.has_logged_module_order and hasattr(self, 'args') and hasattr(self.args, 'log_file'):
+            if hasattr(self.args, "manual_module_order") and self.args.manual_module_order:
+                self.module_order = self.args.manual_module_order
+                print("===> Using manually specified Module Order:", self.module_order)
+            else:
+                self.module_order = self.module_router(item_embeddings, item_image_embeddings, item_text_embeddings)
+                print("===> Selected Module Order by router:", self.module_order)
+
+            # 只记录一次模块顺序到日志文件
+            if not self.has_logged_module_order and hasattr(self.args, 'log_file'):
                 with open(self.args.log_file, 'a') as f:
-                    f.write("===> Selected Module Order: " + str(self.module_order) + '\n')
-                self.has_logged_module_order = True  # 只写入一次
+                    f.write("===> Module Order: " + str(self.module_order) + '\n')
+                self.has_logged_module_order = True
 
 
         item_embeddings = self.apply_modules_in_order(
@@ -611,14 +617,20 @@ class DistSAModel(nn.Module):
         item_image_embeddings = self.fc_cov_image(self.image_cov_embeddings(sequence))
         item_text_embeddings = self.fc_cov_text(self.text_cov_embeddings(sequence))
 
+        # 手动顺序优先，否则使用 module_router 自动生成
         if self.module_order is None:
-            self.module_order = self.module_router(item_embeddings, item_image_embeddings, item_text_embeddings)
-            print("===> Selected Module Order:", self.module_order)
-            # 打印并写入日志
-            if not self.has_logged_module_order and hasattr(self, 'args') and hasattr(self.args, 'log_file'):
+            if hasattr(self.args, "manual_module_order") and self.args.manual_module_order:
+                self.module_order = self.args.manual_module_order
+                print("===> Using manually specified Module Order:", self.module_order)
+            else:
+                self.module_order = self.module_router(item_embeddings, item_image_embeddings, item_text_embeddings)
+                print("===> Selected Module Order by router:", self.module_order)
+
+            # 只记录一次模块顺序到日志文件
+            if not self.has_logged_module_order and hasattr(self.args, 'log_file'):
                 with open(self.args.log_file, 'a') as f:
-                    f.write("===> Selected Module Order: " + str(self.module_order) + '\n')
-                self.has_logged_module_order = True  # 只写入一次
+                    f.write("===> Module Order: " + str(self.module_order) + '\n')
+                self.has_logged_module_order = True
 
 
         item_embeddings = self.apply_modules_in_order(
