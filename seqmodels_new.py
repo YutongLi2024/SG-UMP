@@ -522,6 +522,7 @@ class DistSAModel(nn.Module):
 
         self.module_router = ModuleRouter(args.hidden_size)
         self.module_order = None  # Will be set during first add_position_* call
+        self.has_logged_module_order = False
 
 
         self.apply(self.init_weights)
@@ -573,6 +574,12 @@ class DistSAModel(nn.Module):
         if self.module_order is None:
             self.module_order = self.module_router(item_embeddings, item_image_embeddings, item_text_embeddings)
             print("===> Selected Module Order:", self.module_order)
+            # 打印并写入日志
+            if not self.has_logged_module_order and hasattr(self, 'args') and hasattr(self.args, 'log_file'):
+                with open(self.args.log_file, 'a') as f:
+                    f.write("===> Selected Module Order: " + str(self.module_order) + '\n')
+                self.has_logged_module_order = True  # 只写入一次
+
 
         item_embeddings = self.apply_modules_in_order(
             modules_dict={
@@ -607,6 +614,12 @@ class DistSAModel(nn.Module):
         if self.module_order is None:
             self.module_order = self.module_router(item_embeddings, item_image_embeddings, item_text_embeddings)
             print("===> Selected Module Order:", self.module_order)
+            # 打印并写入日志
+            if not self.has_logged_module_order and hasattr(self, 'args') and hasattr(self.args, 'log_file'):
+                with open(self.args.log_file, 'a') as f:
+                    f.write("===> Selected Module Order: " + str(self.module_order) + '\n')
+                self.has_logged_module_order = True  # 只写入一次
+
 
         item_embeddings = self.apply_modules_in_order(
             modules_dict={
