@@ -6,14 +6,13 @@ import argparse
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from datasets import SASRecDataset
 from trainers import FinetuneTrainer, DistSAModelTrainer
-from seqmodels_new import SASRecModel, DistSAModel
+from seqmodels_new import SASRecModel, STOSA
 from utils import EarlyStopping, get_user_seqs, check_path, set_seed
 import time
 import os
 
 base_dir = os.path.dirname(os.path.abspath(__file__))  
 data_name = 'Home'
-
 
 def main():
     start_time = time.time()
@@ -26,7 +25,7 @@ def main():
     parser.add_argument('--patience', default=10, type=int, help="pretrain epochs 10, 20, 30...")
 
     # model args
-    parser.add_argument("--model_name", default='DistSAModel', type=str)#Finetune_full
+    parser.add_argument("--model_name", default='STOSA', type=str)#Finetune_full
     # parser.add_argument("--model_name", default='SASRec', type=str)#Finetune_full
     parser.add_argument("--hidden_size", type=int, default=256, help="hidden size of transformer model") #64
     parser.add_argument("--num_hidden_layers", type=int, default=1, help="number of layers")
@@ -57,7 +56,8 @@ def main():
     parser.add_argument(
         "--manual_module_order",
         nargs='+',  # 接收一个或多个字符串参数
-        default=["filter", "attention", "fusion"],  # 默认顺序
+        # default=["fusion", "filter", "attention"], 
+        default=None,  # 此时自动选择
         help="Specify manual module order, e.g., --manual_module_order filter fusion attention"
     )
 
@@ -92,8 +92,29 @@ def main():
 
     # save model args
     # args_str = f'{args.model_name}-{args.data_name}-{args.hidden_size}-{args.num_hidden_layers}-{args.num_attention_heads}-{args.hidden_act}-{args.attention_probs_dropout_prob}-{args.hidden_dropout_prob}-{args.max_seq_length}-{args.lr}-{args.weight_decay}-{args.ckp}-{args.kernel_param}-{args.pvn_weight}'
-    order_str = "auto" if args.manual_module_order is None else "_".join(args.manual_module_order)
-    args_str = f'{args.model_name}-{args.data_name}-{args.num_shared_experts}-{args.num_specific_experts}-order-{order_str}'
+    # order_str = "auto" if args.manual_module_order is None else "_".join(args.manual_module_order)
+    # args_str = f'{args.model_name}-{args.data_name}-{args.num_shared_experts}-{args.num_specific_experts}-order-{order_str}'
+
+    # data_name is 'reviews_Home'，save 'Home'
+    clean_data_name = args.data_name.replace('reviews_', '')
+
+    # 定义模块名到缩写字母的映射
+    module_short_map = {
+        "filter": "a",
+        "attention": "b",
+        "fusion": "c"
+    }
+
+    # 处理模块顺序
+    if args.manual_module_order is None:
+        order_str = "auto"
+    else:
+        # 转换成对应的缩写字母顺序，例如 ['fusion', 'attention', 'filter'] -> 'c-b-a'
+        short_order = [module_short_map[m] for m in args.manual_module_order]
+        order_str = "-".join(short_order)
+
+    # 拼接 log 文件名
+    args_str = f'{args.model_name}-{clean_data_name}-{args.num_shared_experts}-{args.num_specific_experts}-order-{order_str}'
     args.log_file = os.path.join(args.output_dir, args_str + '.txt')
     print(str(args))
     with open(args.log_file, 'a') as f:
@@ -116,8 +137,8 @@ def main():
     test_dataset = SASRecDataset(args, user_seq, data_type='test')
     test_sampler = SequentialSampler(test_dataset)
 
-    if args.model_name == 'DistSAModel':
-        model = DistSAModel(args=args)
+    if args.model_name == 'STOSA':
+        model = STOSA(args=args)
         eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=100)
         test_dataloader = DataLoader(test_dataset, sampler=test_sampler, batch_size=100)
         trainer = DistSAModelTrainer(model, train_dataloader, eval_dataloader,
@@ -136,7 +157,7 @@ def main():
         scores, result_info, _ = trainer.test(0, full_sort=True)
 
     else:
-        if args.model_name == 'DistSAModel':
+        if args.model_name == 'STOSA':
             early_stopping = EarlyStopping(args.checkpoint_path, patience=args.patience, verbose=True)
         else:
             early_stopping = EarlyStopping(args.checkpoint_path, patience=args.patience, verbose=True)

@@ -179,27 +179,20 @@ class MultiScaleFusionLayer(nn.Module):
         """
         x = torch.cat([id_feat, img_feat, txt_feat], axis=-1)
 
-        # experts_shared_o = [e(x) for e in self.experts_shared_mean]
         experts_shared_o = [e(x) for e in self.experts_shared]
-        experts_shared_o = torch.stack(experts_shared_o)
-        experts_shared_o = experts_shared_o.squeeze()
+        experts_shared_o = torch.stack(experts_shared_o) # [num of share experts, batch, seq, feature_dim]
 
         # gate_share
-        # selected_s = self.dnn_share_mean(x)
         selected_s = self.dnn_share(x)
         gate_share_out = torch.einsum('abcd, bca -> bcd', experts_shared_o, selected_s)
 
-        experts_task1_o = [e(id_feat + gate_share_out) for e in self.experts_task1]
-        experts_task1_o = torch.stack(experts_task1_o)
+        experts_task1_o = [e(id_feat + gate_share_out) for e in self.experts_task1] 
+        experts_task1_o = torch.stack(experts_task1_o) # [num of specific experts, batch, seq, feature_dim]
         experts_task2_o = [e(img_feat + gate_share_out) for e in self.experts_task2]
         experts_task2_o = torch.stack(experts_task2_o)
         experts_task3_o = [e(txt_feat + gate_share_out) for e in self.experts_task3]
         experts_task3_o = torch.stack(experts_task3_o)
 
-        # experts_shared_o = experts_shared_o.squeeze()
-        experts_task1_o = experts_task1_o.squeeze()
-        experts_task2_o = experts_task2_o.squeeze()
-        experts_task3_o = experts_task3_o.squeeze()
 
         # gate1
         selected1 = self.dnn1(id_feat)
@@ -323,9 +316,9 @@ class ModuleRouter(nn.Module):
 
 
 
-class DistSAModel(nn.Module):
+class STOSA(nn.Module):
     def __init__(self, args):
-        super(DistSAModel, self).__init__()
+        super(STOSA, self).__init__()
         self.item_mean_embeddings = nn.Embedding(args.item_size, args.hidden_size, padding_idx=0)
         self.item_cov_embeddings = nn.Embedding(args.item_size, args.hidden_size, padding_idx=0)
         self.position_mean_embeddings = nn.Embedding(args.max_seq_length, args.hidden_size)
@@ -706,8 +699,8 @@ class Swish(nn.Module):
         return x * torch.sigmoid(self.beta * x)
 
 
-class DistMeanSAModel(DistSAModel):
+class DistMeanSAModel(STOSA):
     def __init__(self, args):
         super(DistMeanSAModel, self).__init__(args)
-        self.item_encoder = DistSAModel(args)
+        self.item_encoder = STOSA(args)
 

@@ -7,7 +7,7 @@ import torch.nn as nn
 from torch.optim import Adam
 from utils import recall_at_k, ndcg_k, get_metric, cal_mrr
 from modules import wasserstein_distance, kl_distance, wasserstein_distance_matmul
-from seqmodels_new import DistSAModel
+from seqmodels_new import STOSA
 from tqdm import tqdm
 
 
@@ -79,10 +79,17 @@ class Trainer:
             ndcg.append(ndcg_result)
             ndcg_dict_list.append(ndcg_dict_k)
         
+        # post_fix = {
+        #     "Epoch": epoch,
+        #     "Recall@10": '{:.8f}'.format(recall[0]), "NDCG@10": '{:.8f}'.format(ndcg[0]),
+        #     "Recall@20": '{:.8f}'.format(recall[1]), "NDCG@20": '{:.8f}'.format(ndcg[1]),
+        # }
         post_fix = {
             "Epoch": epoch,
-            "Recall@10": '{:.8f}'.format(recall[0]), "NDCG@10": '{:.8f}'.format(ndcg[0]),
-            "Recall@20": '{:.8f}'.format(recall[1]), "NDCG@20": '{:.8f}'.format(ndcg[1]),
+            "Recall@10": '{:.4f}'.format(recall[0]), 
+            "Recall@20": '{:.4f}'.format(recall[1]),
+            "NDCG@10": '{:.4f}'.format(ndcg[0]), 
+            "NDCG@20": '{:.4f}'.format(ndcg[1]),
         }
         
         print(post_fix, flush=True)
