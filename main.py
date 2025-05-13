@@ -4,15 +4,17 @@ import numpy as np
 import torch
 import argparse
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
-from datasets import SASRecDataset
-from trainers import FinetuneTrainer, DistSAModelTrainer
-from seqmodels_new import SASRecModel, STOSA
+from datasets import SASRecDataset, OracleDataset
+from trainers import SASRecTrainer, STOSATrainer, OracleTrainer
+from STOSA import STOSA
+from SASRec import SASRecModel
 from utils import EarlyStopping, get_user_seqs, check_path, set_seed
+from Oracle4Rec import Oracle4Rec
 import time
 import os
 
 base_dir = os.path.dirname(os.path.abspath(__file__))  
-data_name = 'Home'
+data_name = 'Beauty'
 
 def main():
     start_time = time.time()
@@ -25,8 +27,8 @@ def main():
     parser.add_argument('--patience', default=10, type=int, help="pretrain epochs 10, 20, 30...")
 
     # model args
-    parser.add_argument("--model_name", default='STOSA', type=str)#Finetune_full
-    # parser.add_argument("--model_name", default='SASRec', type=str)#Finetune_full
+    parser.add_argument("--model_name", default='STOSA', type=str)
+    # parser.add_argument("--model_name", default='SASRec', type=str)
     parser.add_argument("--hidden_size", type=int, default=256, help="hidden size of transformer model") #64
     parser.add_argument("--num_hidden_layers", type=int, default=1, help="number of layers")
     parser.add_argument('--num_attention_heads', default=4, type=int)
@@ -48,7 +50,7 @@ def main():
     parser.add_argument("--is_use_image", type=bool, default=False, help="is use image embedding")
     parser.add_argument("--pretrain_emb_dim", type=int, default=512, help="pretrain_emb_dim of clip model")
     parser.add_argument("--is_use_cross", type=bool, default=True, help="is use mm cross")
-    parser.add_argument('--num_shared_experts', default=2, type=int, help="shared experts for multi-modal fusion")
+    parser.add_argument('--num_shared_experts', default=4, type=int, help="shared experts for multi-modal fusion")
     parser.add_argument('--num_specific_experts', default=4, type=int, help="specific experts for multi-modal fusion")
     parser.add_argument('--low_rank', default=4, type=int, help="low_rank matrix")
     parser.add_argument('--global_transformer_nhead', default=4, type=int)
@@ -56,8 +58,8 @@ def main():
     parser.add_argument(
         "--manual_module_order",
         nargs='+',  # 接收一个或多个字符串参数
-        # default=["fusion", "filter", "attention"], 
-        default=None,  # 此时自动选择
+        default=["attention", "filter", "fusion"], 
+        # default=None,  # 此时自动选择
         help="Specify manual module order, e.g., --manual_module_order filter fusion attention"
     )
 
@@ -73,6 +75,7 @@ def main():
     parser.add_argument("--adam_beta1", type=float, default=0.9, help="adam first beta value")
     parser.add_argument("--adam_beta2", type=float, default=0.999, help="adam second beta value")
     parser.add_argument("--gpu_id", type=str, default="0", help="gpu_id")
+    parser.add_argument("--device", type=str, default="cuda:0", help="train device")
 
     args = parser.parse_args()
 
@@ -89,11 +92,6 @@ def main():
     args.item_size = max_item + 2
     args.num_users = num_users
     args.mask_id = max_item + 1
-
-    # save model args
-    # args_str = f'{args.model_name}-{args.data_name}-{args.hidden_size}-{args.num_hidden_layers}-{args.num_attention_heads}-{args.hidden_act}-{args.attention_probs_dropout_prob}-{args.hidden_dropout_prob}-{args.max_seq_length}-{args.lr}-{args.weight_decay}-{args.ckp}-{args.kernel_param}-{args.pvn_weight}'
-    # order_str = "auto" if args.manual_module_order is None else "_".join(args.manual_module_order)
-    # args_str = f'{args.model_name}-{args.data_name}-{args.num_shared_experts}-{args.num_specific_experts}-order-{order_str}'
 
     # data_name is 'reviews_Home'，save 'Home'
     clean_data_name = args.data_name.replace('reviews_', '')
@@ -141,14 +139,32 @@ def main():
         model = STOSA(args=args)
         eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=100)
         test_dataloader = DataLoader(test_dataset, sampler=test_sampler, batch_size=100)
-        trainer = DistSAModelTrainer(model, train_dataloader, eval_dataloader,
+        trainer = STOSATrainer(model, train_dataloader, eval_dataloader,
                                     test_dataloader, args)
-    else:
+    elif args.model_name == 'SASRec':
         model = SASRecModel(args=args)
         eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.batch_size)
         test_dataloader = DataLoader(test_dataset, sampler=test_sampler, batch_size=args.batch_size)
 
-        trainer = FinetuneTrainer(model, train_dataloader, eval_dataloader,
+        trainer = SASRecTrainer(model, train_dataloader, eval_dataloader,
+                                test_dataloader, args)
+        
+    else:
+        train_dataset = OracleDataset(args, user_seq, data_type='train')
+        train_sampler = RandomSampler(train_dataset)
+        train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.batch_size)
+
+        eval_dataset = OracleDataset(args, user_seq, data_type='valid')
+        eval_sampler = SequentialSampler(eval_dataset)
+
+        test_dataset = OracleDataset(args, user_seq, data_type='test')
+        test_sampler = SequentialSampler(test_dataset)
+
+        model = Oracle4Rec(args=args)
+        eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.batch_size)
+        test_dataloader = DataLoader(test_dataset, sampler=test_sampler, batch_size=args.batch_size)
+
+        trainer = OracleTrainer(model, train_dataloader, eval_dataloader,
                                 test_dataloader, args)
 
     if args.do_eval:

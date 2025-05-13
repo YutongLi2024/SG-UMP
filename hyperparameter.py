@@ -5,8 +5,9 @@ import torch
 import argparse
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from datasets import SASRecDataset
-from trainers import FinetuneTrainer, DistSAModelTrainer
-from seqmodels_new import SASRecModel, STOSA
+from trainers import SASRecTrainer, STOSATrainer
+from STOSA import STOSA
+from SASRec import SASRecModel
 from utils import EarlyStopping, get_user_seqs, check_path, set_seed
 import time
 import os
@@ -77,13 +78,13 @@ def run_experiment(args, user_seq, max_item, valid_rating_matrix, test_rating_ma
         model = STOSA(args=args)
         eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=100)
         test_dataloader = DataLoader(test_dataset, sampler=test_sampler, batch_size=100)
-        trainer = DistSAModelTrainer(model, train_dataloader, eval_dataloader,
+        trainer = STOSATrainer(model, train_dataloader, eval_dataloader,
                                     test_dataloader, args)
     else:
         model = SASRecModel(args=args)
         eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.batch_size)
         test_dataloader = DataLoader(test_dataset, sampler=test_sampler, batch_size=args.batch_size)
-        trainer = FinetuneTrainer(model, train_dataloader, eval_dataloader,
+        trainer = SASRecTrainer(model, train_dataloader, eval_dataloader,
                                 test_dataloader, args)
     
     if args.do_eval:
@@ -217,55 +218,54 @@ def main():
         get_user_seqs(args.data_file)
     
     # Define hyperparameter search space
-    shared_expert_list = [1, 2, 3, 4, 5, 6]
-    specific_expert_list = [1, 2, 3, 4, 5, 6]
+    # shared_expert_list = [1, 2, 3, 4, 5, 6]
+    # specific_expert_list = [1, 2, 3, 4, 5, 6]
+    shared_expert_list = [4]
+    specific_expert_list = [4]
     module_order_list = [
-        ["fusion", "filter", "attention"],
-        ["fusion", "attention", "filter"],
-        ["filter", "fusion", "attention"],
         ["filter", "attention", "fusion"],
+        ["filter", "fusion", "attention"],
+        ["attention", "filter", "fusion"],
         ["attention", "fusion", "filter"],
-        ["attention", "filter", "fusion"]
+        ["fusion", "filter", "attention"],
+        ["fusion", "attention", "filter"]
     ]
     
-    # If grid search is enabled, run all combinations
-    if args.run_grid_search:
-        print(f"Starting grid search with {len(shared_expert_list) * len(specific_expert_list) * len(module_order_list)} combinations")
+    # grid search, run all combinations
+    print(f"Starting grid search with {len(shared_expert_list) * len(specific_expert_list) * len(module_order_list)} combinations")
+    
+    # Create a summary log file for all experiments
+    summary_log_path = os.path.join(args.output_dir, "grid_search_summary.txt")
+    with open(summary_log_path, 'w') as f:
+        f.write(f"Grid Search Summary - Started at {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write("="*80 + "\n")
+        f.write(f"Total combinations: {len(shared_expert_list) * len(specific_expert_list) * len(module_order_list)}\n\n")
+    
+    # Run all combinations
+    experiment_count = 0
+    for shared_experts, specific_experts, module_order in itertools.product(shared_expert_list, specific_expert_list, module_order_list):
+        experiment_count += 1
+        print(f"\nExperiment {experiment_count}/{len(shared_expert_list) * len(specific_expert_list) * len(module_order_list)}")
+        print(f"Shared Experts: {shared_experts}, Specific Experts: {specific_experts}")
+        print(f"Module Order: {module_order}")
         
-        # Create a summary log file for all experiments
-        summary_log_path = os.path.join(args.output_dir, "grid_search_summary.txt")
-        with open(summary_log_path, 'w') as f:
-            f.write(f"Grid Search Summary - Started at {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
-            f.write("="*80 + "\n")
-            f.write(f"Total combinations: {len(shared_expert_list) * len(specific_expert_list) * len(module_order_list)}\n\n")
+        # Update args for this experiment
+        experiment_args = argparse.Namespace(**vars(args))
+        experiment_args.num_shared_experts = shared_experts
+        experiment_args.num_specific_experts = specific_experts
+        experiment_args.manual_module_order = module_order
         
-        # Run all combinations
-        experiment_count = 0
-        for shared_experts, specific_experts, module_order in itertools.product(shared_expert_list, specific_expert_list, module_order_list):
-            experiment_count += 1
-            print(f"\nExperiment {experiment_count}/{len(shared_expert_list) * len(specific_expert_list) * len(module_order_list)}")
-            print(f"Shared Experts: {shared_experts}, Specific Experts: {specific_experts}")
-            print(f"Module Order: {module_order}")
-            
-            # Update args for this experiment
-            experiment_args = argparse.Namespace(**vars(args))
-            experiment_args.num_shared_experts = shared_experts
-            experiment_args.num_specific_experts = specific_experts
-            experiment_args.manual_module_order = module_order
-            
-            # Run the experiment
-            run_experiment(experiment_args, user_seq, max_item, valid_rating_matrix, test_rating_matrix, num_users)
-            
-            # Update summary log
-            module_short_map = {"filter": "a", "attention": "b", "fusion": "c"}
-            short_order = "-".join([module_short_map[m] for m in module_order])
-            experiment_name = f'STOSA-{args.data_name.replace("reviews_", "")}-{shared_experts}-{specific_experts}-order-{short_order}'
-            
-            with open(summary_log_path, 'a') as f:
-                f.write(f"Completed: {experiment_name}\n")
-    else:
-        # Run a single experiment with the provided args
-        run_experiment(args, user_seq, max_item, valid_rating_matrix, test_rating_matrix, num_users)
+        # Run the experiment
+        run_experiment(experiment_args, user_seq, max_item, valid_rating_matrix, test_rating_matrix, num_users)
+        
+        # Update summary log
+        module_short_map = {"filter": "a", "attention": "b", "fusion": "c"}
+        short_order = "-".join([module_short_map[m] for m in module_order])
+        experiment_name = f'STOSA-{args.data_name.replace("reviews_", "")}-{shared_experts}-{specific_experts}-order-{short_order}'
+        
+        with open(summary_log_path, 'a') as f:
+            f.write(f"Completed: {experiment_name}\n")
+
     
     # Log overall time for all experiments
     overall_end_time = time.time()
@@ -285,3 +285,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+

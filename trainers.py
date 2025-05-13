@@ -7,7 +7,7 @@ import torch.nn as nn
 from torch.optim import Adam
 from utils import recall_at_k, ndcg_k, get_metric, cal_mrr
 from modules import wasserstein_distance, kl_distance, wasserstein_distance_matmul
-from seqmodels_new import STOSA
+from STOSA import STOSA
 from tqdm import tqdm
 
 
@@ -148,13 +148,13 @@ class Trainer:
         return rating_pred
 
 
-class FinetuneTrainer(Trainer):
+class SASRecTrainer(Trainer):
 
     def __init__(self, model,
                  train_dataloader,
                  eval_dataloader,
                  test_dataloader, args):
-        super(FinetuneTrainer, self).__init__(
+        super(SASRecTrainer, self).__init__(
             model,
             train_dataloader,
             eval_dataloader,
@@ -260,13 +260,13 @@ class FinetuneTrainer(Trainer):
                 return self.get_sample_scores(epoch, pred_list)
 
 
-class DistSAModelTrainer(Trainer):
+class STOSATrainer(Trainer):
 
     def __init__(self, model,
                  train_dataloader,
                  eval_dataloader,
                  test_dataloader, args):
-        super(DistSAModelTrainer, self).__init__(
+        super(STOSATrainer, self).__init__(
             model,
             train_dataloader,
             eval_dataloader,
@@ -403,3 +403,170 @@ class DistSAModelTrainer(Trainer):
                     return self.get_full_sort_score(epoch, answer_list, pred_list)
 
 
+class OracleTrainer(Trainer):
+    def __init__(self, model, train_dataloader, eval_dataloader, test_dataloader, args):
+        super().__init__(model, train_dataloader, eval_dataloader, test_dataloader, args)
+        
+        # 重新配置优化器 - 释放基类创建的默认优化器
+        del self.optim
+        
+        # 创建Oracle模型特有的双优化器
+        betas = (self.args.adam_beta1, self.args.adam_beta2)
+        self.optim_future = Adam(
+            self.model.future_ae.parameters(),
+            lr=self.args.lr, 
+            betas=betas, 
+            weight_decay=self.args.weight_decay
+        )
+        
+        self.optim_past = Adam(
+            list(self.model.past_ae.parameters()) + list(self.model.transition.parameters()),
+            lr=self.args.lr, 
+            betas=betas, 
+            weight_decay=self.args.weight_decay
+        )
+
+    def iteration(self, epoch, dataloader, full_sort=False, train=True):
+        """实现基类要求的iteration接口"""
+        if train:
+            return self._train_epoch(epoch, dataloader)
+        else:
+            return self._evaluate(epoch, dataloader, full_sort)
+
+    def _train_epoch(self, epoch, dataloader):
+        """Oracle双阶段训练核心逻辑"""
+        self.model.train()
+        total_loss = 0.0
+        
+        rec_data_iter = tqdm(
+            enumerate(dataloader), 
+            desc=f'Train in {epoch}-th epoch', 
+            total=len(dataloader),
+            ncols=120
+        )
+        
+        for i, batch in rec_data_iter:
+            # 设备转移
+            batch = tuple(t.to(self.device) for t in batch)
+            _, input_ids, answer, neg_answer, input_ids_future, answer_future, neg_answer_future = batch
+            
+            # ---- 阶段1：训练Future编码器 ----
+            # 确保参数同步 - 从past到future
+            self._sync_embeddings(src=self.model.past_ae, tgt=self.model.future_ae)
+            
+            # 前向计算
+            future_loss, _, _ = self.model.future_forward(
+                input_ids_future, answer_future, neg_answer_future
+            )
+            
+            # 反向传播
+            self.optim_future.zero_grad()
+            future_loss.backward()
+            self.optim_future.step()
+            
+            # 获取未来表征
+            _, z_future, z_future_mask = self.model.future_forward(
+                input_ids_future, answer_future, neg_answer_future
+            )
+            z_future = z_future.detach()  # 分离计算图
+            
+            # ---- 阶段2：训练Past编码器 ----
+            # 确保参数同步 - 从future到past
+            self._sync_embeddings(src=self.model.future_ae, tgt=self.model.past_ae)
+            
+            # 过去编码器前向
+            past_loss, z_past = self.model.past_forward(input_ids, answer, neg_answer)
+            
+            # Transition计算
+            transition_loss = self.model.transition_forward(z_past, z_future, z_future_mask)
+            
+            # 组合损失
+            total_batch_loss = past_loss + 0.01 * transition_loss
+            
+            # 反向传播
+            self.optim_past.zero_grad()
+            total_batch_loss.backward()
+            self.optim_past.step()
+            
+            # 更新统计
+            batch_loss = future_loss.item() + past_loss.item() + 0.01 * transition_loss.item()
+            total_loss += batch_loss
+            
+            # 更新进度条
+            post_fix = {'rec_loss': '{:.4f}'.format(total_loss / (i+1))}
+            rec_data_iter.set_postfix(post_fix)
+        
+        return total_loss / len(dataloader)
+
+    def _sync_embeddings(self, src, tgt):
+        """动态参数同步工具"""
+        # Item embeddings同步
+        tgt.item_embeddings.weight.data = src.item_embeddings.weight.data.detach()
+        
+        # Position embeddings同步
+        tgt.position_embeddings.weight.data = src.position_embeddings.weight.data.detach()
+
+    def _evaluate(self, epoch, dataloader, full_sort):
+        """评估函数"""
+        self.model.eval()
+        
+        if full_sort:
+            return self._full_sort_eval(epoch, dataloader)
+        else:
+            return self._sample_eval(epoch, dataloader)
+
+    def _sample_eval(self, epoch, dataloader):
+        """采样评估"""
+        pred_list = None
+        rec_data_iter = tqdm(
+            enumerate(dataloader), 
+            desc=f'{"Valid" if "valid" in str(dataloader.dataset) else "Test"} in {epoch}-th epoch', 
+            total=len(dataloader),
+            ncols=120
+        )
+        
+        for i, batch in rec_data_iter:
+            batch = tuple(t.to(self.device) for t in batch)
+            user_ids, input_ids, answers, _, sample_negs = batch
+            
+            # 生成预测
+            with torch.no_grad():
+                test_neg_items = torch.cat((answers.unsqueeze(-1), sample_negs), -1)
+                test_logits = self.model.predict(input_ids, test_neg_items)
+                test_logits = test_logits.cpu().detach().numpy().copy()
+            
+            # 收集结果
+            if i == 0:
+                pred_list = test_logits
+            else:
+                pred_list = np.append(pred_list, test_logits, axis=0)
+        
+        # 调用评分方法
+        return self.get_sample_scores(epoch, pred_list)
+
+    def _full_sort_eval(self, epoch, dataloader):
+        """全排序评估"""
+        answer_list = []
+        pred_list = []
+        
+        for batch in tqdm(dataloader, desc=f'Full Sort Eval in {epoch}-th epoch', ncols=120):
+            batch = tuple(t.to(self.device) for t in batch)
+            user_ids, input_ids, answers = batch[:3]
+            
+            # 生成预测
+            with torch.no_grad():
+                rating_pred = self.model.predict_full(input_ids)
+            
+            # 屏蔽训练数据
+            rating_pred[self.args.train_matrix[user_ids.cpu().numpy()].toarray() > 0] = -np.inf
+            
+            # 收集结果
+            pred_list.append(rating_pred.cpu().numpy())
+            answer_list.append(answers.cpu().numpy())
+        
+        # 调用评分方法
+        return self.get_full_sort_score(
+            epoch, 
+            np.concatenate(answer_list, axis=0),
+            np.concatenate(pred_list, axis=0)
+        )
