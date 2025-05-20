@@ -1,0 +1,59 @@
+Namespace(data_dir='./data/Features/Yelp/', output_dir='outputs/Yelp', data_name='reviews_Yelp', do_eval=False, ckp=10, patience=10, model_name='DistSAModel', hidden_size=256, num_hidden_layers=1, num_attention_heads=4, hidden_act='gelu', attention_probs_dropout_prob=0.0, hidden_dropout_prob=0.3, initializer_range=0.02, max_seq_length=100, distance_metric='wasserstein', pvn_weight=0.005, kernel_param=1.0, image_emb_path='data/Features/Yelp/clip_image_features_Yelp.pt', text_emb_path='data/Features/Yelp/clip_text_features_Yelp.pt', mm_emb_dim=512, is_use_mm=True, is_use_text=False, is_use_image=False, pretrain_emb_dim=512, is_use_cross=True, num_shared_experts=2, num_specific_experts=4, low_rank=4, global_transformer_nhead=4, prediction=False, lr=0.001, batch_size=256, epochs=500, no_cuda=False, log_freq=1, seed=42, weight_decay=0.0, adam_beta1=0.9, adam_beta2=0.999, gpu_id='0', cuda_condition=True, data_file='./data/Features/Yelp/reviews_Yelp.txt', item_size=148525, num_users=287116, mask_id=148524, log_file='outputs/Yelp/DistSAModel-reviews_Yelp-256-1-4-gelu-0.0-0.3-100-0.001-0.0-10-1.0-0.005.txt')
+Namespace(data_dir='./data/Features/Yelp/', output_dir='outputs/Yelp', data_name='reviews_Yelp', do_eval=False, ckp=10, patience=10, model_name='DistSAModel', hidden_size=256, num_hidden_layers=1, num_attention_heads=4, hidden_act='gelu', attention_probs_dropout_prob=0.0, hidden_dropout_prob=0.3, initializer_range=0.02, max_seq_length=100, distance_metric='wasserstein', pvn_weight=0.005, kernel_param=1.0, image_emb_path='data/Features/Yelp/clip_image_features_Yelp.pt', text_emb_path='data/Features/Yelp/clip_text_features_Yelp.pt', mm_emb_dim=512, is_use_mm=True, is_use_text=False, is_use_image=False, pretrain_emb_dim=512, is_use_cross=True, num_shared_experts=2, num_specific_experts=4, low_rank=4, global_transformer_nhead=4, prediction=False, lr=0.001, batch_size=256, epochs=500, no_cuda=False, log_freq=1, seed=42, weight_decay=0.0, adam_beta1=0.9, adam_beta2=0.999, gpu_id='0', cuda_condition=True, data_file='./data/Features/Yelp/reviews_Yelp.txt', item_size=148525, num_users=287116, mask_id=148524, log_file='outputs/Yelp/DistSAModel-reviews_Yelp-256-1-4-gelu-0.0-0.3-100-0.001-0.0-10-1.0-0.005.txt')
+Namespace(data_dir='./data/Features/Yelp/', output_dir='outputs/Yelp', data_name='reviews_Yelp', do_eval=False, ckp=10, patience=10, model_name='DistSAModel', hidden_size=256, num_hidden_layers=1, num_attention_heads=4, hidden_act='gelu', attention_probs_dropout_prob=0.0, hidden_dropout_prob=0.3, initializer_range=0.02, max_seq_length=100, distance_metric='wasserstein', pvn_weight=0.005, kernel_param=1.0, image_emb_path='data/Features/Yelp/clip_image_features_Yelp.pt', text_emb_path='data/Features/Yelp/clip_text_features_Yelp.pt', mm_emb_dim=512, is_use_mm=True, is_use_text=False, is_use_image=False, pretrain_emb_dim=512, is_use_cross=True, num_shared_experts=2, num_specific_experts=4, low_rank=4, global_transformer_nhead=4, prediction=False, lr=0.001, batch_size=256, epochs=500, no_cuda=False, log_freq=1, seed=42, weight_decay=0.0, adam_beta1=0.9, adam_beta2=0.999, gpu_id='0', cuda_condition=True, data_file='./data/Features/Yelp/reviews_Yelp.txt', item_size=148525, num_users=287116, mask_id=148524, log_file='outputs/Yelp/DistSAModel-reviews_Yelp-256-1-4-gelu-0.0-0.3-100-0.001-0.0-10-1.0-0.005.txt')
+Namespace(data_dir='./data/Features/Yelp/', output_dir='outputs/Yelp', data_name='reviews_Yelp', do_eval=False, ckp=10, patience=10, model_name='DistSAModel', hidden_size=256, num_hidden_layers=1, num_attention_heads=4, hidden_act='gelu', attention_probs_dropout_prob=0.0, hidden_dropout_prob=0.3, initializer_range=0.02, max_seq_length=100, distance_metric='wasserstein', pvn_weight=0.005, kernel_param=1.0, image_emb_path='data/Features/Yelp/clip_image_features_Yelp.pt', text_emb_path='data/Features/Yelp/clip_text_features_Yelp.pt', mm_emb_dim=512, is_use_mm=True, is_use_text=False, is_use_image=False, pretrain_emb_dim=512, is_use_cross=True, num_shared_experts=2, num_specific_experts=4, low_rank=4, global_transformer_nhead=4, prediction=False, lr=0.001, batch_size=256, epochs=500, no_cuda=False, log_freq=1, seed=42, weight_decay=0.0, adam_beta1=0.9, adam_beta2=0.999, gpu_id='0', cuda_condition=True, data_file='./data/Features/Yelp/reviews_Yelp.txt', item_size=148525, num_users=287116, mask_id=148524, log_file='outputs/Yelp/DistSAModel-reviews_Yelp-256-1-4-gelu-0.0-0.3-100-0.001-0.0-10-1.0-0.005.txt')
+Namespace(data_dir='./data/Features/Yelp/', output_dir='outputs/Yelp', data_name='reviews_Yelp', do_eval=False, ckp=10, patience=10, model_name='DistSAModel', hidden_size=256, num_hidden_layers=1, num_attention_heads=4, hidden_act='gelu', attention_probs_dropout_prob=0.0, hidden_dropout_prob=0.3, initializer_range=0.02, max_seq_length=100, distance_metric='wasserstein', pvn_weight=0.005, kernel_param=1.0, image_emb_path='data/Features/Yelp/clip_image_features_Yelp.pt', text_emb_path='data/Features/Yelp/clip_text_features_Yelp.pt', mm_emb_dim=512, is_use_mm=True, is_use_text=False, is_use_image=False, pretrain_emb_dim=512, is_use_cross=True, num_shared_experts=2, num_specific_experts=4, low_rank=4, global_transformer_nhead=4, prediction=False, lr=0.001, batch_size=256, epochs=500, no_cuda=False, log_freq=1, seed=42, weight_decay=0.0, adam_beta1=0.9, adam_beta2=0.999, gpu_id='0', cuda_condition=True, data_file='./data/Features/Yelp/reviews_Yelp.txt', item_size=148525, num_users=287116, mask_id=148524, log_file='outputs/Yelp/DistSAModel-reviews_Yelp-256-1-4-gelu-0.0-0.3-100-0.001-0.0-10-1.0-0.005.txt')
+{'epoch': 0, 'rec_avg_loss': '0.3810', 'rec_cur_loss': '0.2949', 'rec_avg_auc': '0.908584', 'rec_avg_pvn_loss': '0.097347'}
+{'Epoch': 0, 'Recall@10': '0.01542234', 'NDCG@10': '0.00774363', 'Recall@20': '0.02389278', 'NDCG@20': '0.00988096'}
+Epoch 0 duration: 853.80 seconds
+853.80
+{'epoch': 1, 'rec_avg_loss': '0.1668', 'rec_cur_loss': '0.1249', 'rec_avg_auc': '0.980137', 'rec_avg_pvn_loss': '0.055972'}
+{'Epoch': 1, 'Recall@10': '0.02861213', 'NDCG@10': '0.01434034', 'Recall@20': '0.04669541', 'NDCG@20': '0.01888379'}
+Epoch 1 duration: 840.43 seconds
+840.43
+{'epoch': 2, 'rec_avg_loss': '0.0883', 'rec_cur_loss': '0.0744', 'rec_avg_auc': '0.990841', 'rec_avg_pvn_loss': '0.031911'}
+{'Epoch': 2, 'Recall@10': '0.02858078', 'NDCG@10': '0.01411772', 'Recall@20': '0.04700191', 'NDCG@20': '0.01874137'}
+Epoch 2 duration: 771.60 seconds
+771.60
+{'epoch': 3, 'rec_avg_loss': '0.0588', 'rec_cur_loss': '0.0508', 'rec_avg_auc': '0.992239', 'rec_avg_pvn_loss': '0.018113'}
+{'Epoch': 3, 'Recall@10': '0.02689854', 'NDCG@10': '0.01315256', 'Recall@20': '0.04522214', 'NDCG@20': '0.01774445'}
+Epoch 3 duration: 798.49 seconds
+798.49
+{'epoch': 4, 'rec_avg_loss': '0.0416', 'rec_cur_loss': '0.0316', 'rec_avg_auc': '0.993395', 'rec_avg_pvn_loss': '0.010317'}
+{'Epoch': 4, 'Recall@10': '0.02178910', 'NDCG@10': '0.01057025', 'Recall@20': '0.03777567', 'NDCG@20': '0.01457095'}
+Epoch 4 duration: 743.40 seconds
+743.40
+{'epoch': 5, 'rec_avg_loss': '0.0292', 'rec_cur_loss': '0.0245', 'rec_avg_auc': '0.994733', 'rec_avg_pvn_loss': '0.005033'}
+{'Epoch': 5, 'Recall@10': '0.02278870', 'NDCG@10': '0.01089341', 'Recall@20': '0.04024506', 'NDCG@20': '0.01526942'}
+Epoch 5 duration: 825.99 seconds
+825.99
+{'epoch': 6, 'rec_avg_loss': '0.0222', 'rec_cur_loss': '0.0271', 'rec_avg_auc': '0.995664', 'rec_avg_pvn_loss': '0.003114'}
+{'Epoch': 6, 'Recall@10': '0.02138857', 'NDCG@10': '0.01029508', 'Recall@20': '0.03839215', 'NDCG@20': '0.01455284'}
+Epoch 6 duration: 720.93 seconds
+720.93
+{'epoch': 7, 'rec_avg_loss': '0.0177', 'rec_cur_loss': '0.0197', 'rec_avg_auc': '0.996296', 'rec_avg_pvn_loss': '0.002145'}
+{'Epoch': 7, 'Recall@10': '0.02335641', 'NDCG@10': '0.01134205', 'Recall@20': '0.04081626', 'NDCG@20': '0.01572517'}
+Epoch 7 duration: 814.76 seconds
+814.76
+{'epoch': 8, 'rec_avg_loss': '0.0145', 'rec_cur_loss': '0.0128', 'rec_avg_auc': '0.996911', 'rec_avg_pvn_loss': '0.001648'}
+{'Epoch': 8, 'Recall@10': '0.02428983', 'NDCG@10': '0.01164550', 'Recall@20': '0.04263782', 'NDCG@20': '0.01624351'}
+Epoch 8 duration: 766.04 seconds
+766.04
+{'epoch': 9, 'rec_avg_loss': '0.0126', 'rec_cur_loss': '0.0132', 'rec_avg_auc': '0.997186', 'rec_avg_pvn_loss': '0.001395'}
+{'Epoch': 9, 'Recall@10': '0.02593725', 'NDCG@10': '0.01259759', 'Recall@20': '0.04540325', 'NDCG@20': '0.01747136'}
+Epoch 9 duration: 767.01 seconds
+767.01
+{'epoch': 10, 'rec_avg_loss': '0.0113', 'rec_cur_loss': '0.0124', 'rec_avg_auc': '0.997371', 'rec_avg_pvn_loss': '0.001254'}
+{'Epoch': 10, 'Recall@10': '0.02467992', 'NDCG@10': '0.01191388', 'Recall@20': '0.04404840', 'NDCG@20': '0.01676272'}
+Epoch 10 duration: 734.37 seconds
+734.37
+{'epoch': 11, 'rec_avg_loss': '0.0102', 'rec_cur_loss': '0.0129', 'rec_avg_auc': '0.997572', 'rec_avg_pvn_loss': '0.001140'}
+{'Epoch': 11, 'Recall@10': '0.02564469', 'NDCG@10': '0.01229453', 'Recall@20': '0.04452904', 'NDCG@20': '0.01702772'}
+Epoch 11 duration: 834.86 seconds
+834.86
+{'Epoch': 'best', 'Recall@10': '0.02861213', 'NDCG@10': '0.01434034', 'Recall@20': '0.04669541', 'NDCG@20': '0.01888379'}
+{'Epoch': 'best', 'Recall@10': '0.02446746', 'NDCG@10': '0.01233072', 'Recall@20': '0.04007091', 'NDCG@20': '0.01625541'}
+Prediction time: 839.62 seconds
+DistSAModel-reviews_Yelp-256-1-4-gelu-0.0-0.3-100-0.001-0.0-10-1.0-0.005
+{'Epoch': 'best', 'Recall@10': '0.02446746', 'NDCG@10': '0.01233072', 'Recall@20': '0.04007091', 'NDCG@20': '0.01625541'}
+Total training time: 234:43

@@ -1,0 +1,14 @@
+Grid Search Summary - Started at 2025-05-14 03:00:47
+================================================================================
+Total combinations: 6
+
+Completed: STOSA-Yelp-4-4-order-a-b-c
+Completed: STOSA-Yelp-4-4-order-a-c-b
+Completed: STOSA-Yelp-4-4-order-b-a-c
+Completed: STOSA-Yelp-4-4-order-b-c-a
+Completed: STOSA-Yelp-4-4-order-c-a-b
+Completed: STOSA-Yelp-4-4-order-c-b-a
+
+================================================================================
+All experiments completed at 2025-05-15 18:57:58
+Total time: 40:08:08

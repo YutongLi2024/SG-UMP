@@ -1,0 +1,200 @@
+Namespace(data_dir='./data/Features/Beauty/', output_dir='outputs/Beauty', data_name='reviews_Beauty', do_eval=False, ckp=10, patience=10, model_name='STOSA', hidden_size=256, num_hidden_layers=1, num_attention_heads=4, hidden_act='gelu', attention_probs_dropout_prob=0.0, hidden_dropout_prob=0.3, initializer_range=0.02, max_seq_length=100, distance_metric='wasserstein', pvn_weight=0.005, kernel_param=1.0, image_emb_path='data/Features/Beauty/clip_image_features_Beauty.pt', text_emb_path='data/Features/Beauty/clip_text_features_Beauty.pt', mm_emb_dim=512, is_use_mm=True, is_use_text=False, is_use_image=False, pretrain_emb_dim=512, is_use_cross=True, num_shared_experts=2, num_specific_experts=5, low_rank=4, global_transformer_nhead=4, prediction=False, manual_module_order=['attention', 'filter', 'fusion'], lr=0.001, batch_size=256, epochs=500, no_cuda=False, log_freq=1, seed=42, weight_decay=0.0, adam_beta1=0.9, adam_beta2=0.999, gpu_id='0', run_grid_search=True, cuda_condition=True, data_file='./data/Features/Beauty/reviews_Beauty.txt', item_size=12103, num_users=22363, mask_id=12102, log_file='outputs/Beauty/STOSA-Beauty-2-5-order-b-a-c.txt')
+===> Module Order: ['attention', 'filter', 'fusion']
+{'epoch': 0, 'rec_avg_loss': '0.8509', 'rec_cur_loss': '0.6260', 'rec_avg_auc': '0.705551', 'rec_avg_pvn_loss': '0.291668'}
+{'Epoch': 0, 'Recall@10': '0.0161', 'Recall@20': '0.0250', 'NDCG@10': '0.0071', 'NDCG@20': '0.0093'}
+Epoch 0 duration: 10.93 seconds
+10.93
+{'epoch': 1, 'rec_avg_loss': '0.5659', 'rec_cur_loss': '0.5136', 'rec_avg_auc': '0.790042', 'rec_avg_pvn_loss': '0.104042'}
+{'Epoch': 1, 'Recall@10': '0.0334', 'Recall@20': '0.0457', 'NDCG@10': '0.0172', 'NDCG@20': '0.0203'}
+Epoch 1 duration: 10.71 seconds
+10.71
+{'epoch': 2, 'rec_avg_loss': '0.4743', 'rec_cur_loss': '0.4622', 'rec_avg_auc': '0.874632', 'rec_avg_pvn_loss': '0.111928'}
+{'Epoch': 2, 'Recall@10': '0.0474', 'Recall@20': '0.0684', 'NDCG@10': '0.0265', 'NDCG@20': '0.0318'}
+Epoch 2 duration: 10.65 seconds
+10.65
+{'epoch': 3, 'rec_avg_loss': '0.3770', 'rec_cur_loss': '0.3545', 'rec_avg_auc': '0.942613', 'rec_avg_pvn_loss': '0.118117'}
+{'Epoch': 3, 'Recall@10': '0.0588', 'Recall@20': '0.0837', 'NDCG@10': '0.0340', 'NDCG@20': '0.0403'}
+Epoch 3 duration: 10.74 seconds
+10.74
+{'epoch': 4, 'rec_avg_loss': '0.3008', 'rec_cur_loss': '0.2970', 'rec_avg_auc': '0.972894', 'rec_avg_pvn_loss': '0.112328'}
+{'Epoch': 4, 'Recall@10': '0.0647', 'Recall@20': '0.0931', 'NDCG@10': '0.0378', 'NDCG@20': '0.0450'}
+Epoch 4 duration: 10.90 seconds
+10.90
+{'epoch': 5, 'rec_avg_loss': '0.2521', 'rec_cur_loss': '0.2755', 'rec_avg_auc': '0.983674', 'rec_avg_pvn_loss': '0.101632'}
+{'Epoch': 5, 'Recall@10': '0.0715', 'Recall@20': '0.0994', 'NDCG@10': '0.0423', 'NDCG@20': '0.0493'}
+Epoch 5 duration: 10.78 seconds
+10.78
+{'epoch': 6, 'rec_avg_loss': '0.2160', 'rec_cur_loss': '0.2180', 'rec_avg_auc': '0.989015', 'rec_avg_pvn_loss': '0.090340'}
+{'Epoch': 6, 'Recall@10': '0.0745', 'Recall@20': '0.1027', 'NDCG@10': '0.0452', 'NDCG@20': '0.0523'}
+Epoch 6 duration: 10.89 seconds
+10.89
+{'epoch': 7, 'rec_avg_loss': '0.1882', 'rec_cur_loss': '0.1921', 'rec_avg_auc': '0.991579', 'rec_avg_pvn_loss': '0.080320'}
+{'Epoch': 7, 'Recall@10': '0.0768', 'Recall@20': '0.1054', 'NDCG@10': '0.0463', 'NDCG@20': '0.0535'}
+Epoch 7 duration: 10.99 seconds
+10.99
+{'epoch': 8, 'rec_avg_loss': '0.1679', 'rec_cur_loss': '0.1706', 'rec_avg_auc': '0.993177', 'rec_avg_pvn_loss': '0.073003'}
+{'Epoch': 8, 'Recall@10': '0.0782', 'Recall@20': '0.1087', 'NDCG@10': '0.0473', 'NDCG@20': '0.0550'}
+Epoch 8 duration: 11.19 seconds
+11.19
+{'epoch': 9, 'rec_avg_loss': '0.1523', 'rec_cur_loss': '0.1470', 'rec_avg_auc': '0.994435', 'rec_avg_pvn_loss': '0.067204'}
+{'Epoch': 9, 'Recall@10': '0.0816', 'Recall@20': '0.1124', 'NDCG@10': '0.0494', 'NDCG@20': '0.0572'}
+Epoch 9 duration: 11.09 seconds
+11.09
+{'epoch': 10, 'rec_avg_loss': '0.1405', 'rec_cur_loss': '0.1445', 'rec_avg_auc': '0.994779', 'rec_avg_pvn_loss': '0.063141'}
+{'Epoch': 10, 'Recall@10': '0.0851', 'Recall@20': '0.1157', 'NDCG@10': '0.0510', 'NDCG@20': '0.0587'}
+Epoch 10 duration: 11.13 seconds
+11.13
+{'epoch': 11, 'rec_avg_loss': '0.1283', 'rec_cur_loss': '0.1203', 'rec_avg_auc': '0.995836', 'rec_avg_pvn_loss': '0.058458'}
+{'Epoch': 11, 'Recall@10': '0.0852', 'Recall@20': '0.1163', 'NDCG@10': '0.0508', 'NDCG@20': '0.0586'}
+Epoch 11 duration: 10.65 seconds
+10.65
+{'epoch': 12, 'rec_avg_loss': '0.1184', 'rec_cur_loss': '0.1179', 'rec_avg_auc': '0.996225', 'rec_avg_pvn_loss': '0.054486'}
+{'Epoch': 12, 'Recall@10': '0.0858', 'Recall@20': '0.1164', 'NDCG@10': '0.0514', 'NDCG@20': '0.0590'}
+Epoch 12 duration: 10.81 seconds
+10.81
+{'epoch': 13, 'rec_avg_loss': '0.1101', 'rec_cur_loss': '0.0922', 'rec_avg_auc': '0.996576', 'rec_avg_pvn_loss': '0.051012'}
+{'Epoch': 13, 'Recall@10': '0.0863', 'Recall@20': '0.1178', 'NDCG@10': '0.0519', 'NDCG@20': '0.0598'}
+Epoch 13 duration: 10.91 seconds
+10.91
+{'epoch': 14, 'rec_avg_loss': '0.1031', 'rec_cur_loss': '0.1119', 'rec_avg_auc': '0.996730', 'rec_avg_pvn_loss': '0.047730'}
+{'Epoch': 14, 'Recall@10': '0.0883', 'Recall@20': '0.1193', 'NDCG@10': '0.0537', 'NDCG@20': '0.0615'}
+Epoch 14 duration: 10.92 seconds
+10.92
+{'epoch': 15, 'rec_avg_loss': '0.0958', 'rec_cur_loss': '0.0973', 'rec_avg_auc': '0.997211', 'rec_avg_pvn_loss': '0.044862'}
+{'Epoch': 15, 'Recall@10': '0.0878', 'Recall@20': '0.1200', 'NDCG@10': '0.0534', 'NDCG@20': '0.0615'}
+Epoch 15 duration: 10.43 seconds
+10.43
+{'epoch': 16, 'rec_avg_loss': '0.0905', 'rec_cur_loss': '0.0944', 'rec_avg_auc': '0.997108', 'rec_avg_pvn_loss': '0.041981'}
+{'Epoch': 16, 'Recall@10': '0.0899', 'Recall@20': '0.1234', 'NDCG@10': '0.0551', 'NDCG@20': '0.0635'}
+Epoch 16 duration: 11.04 seconds
+11.04
+{'epoch': 17, 'rec_avg_loss': '0.0844', 'rec_cur_loss': '0.0907', 'rec_avg_auc': '0.997340', 'rec_avg_pvn_loss': '0.039227'}
+{'Epoch': 17, 'Recall@10': '0.0889', 'Recall@20': '0.1226', 'NDCG@10': '0.0552', 'NDCG@20': '0.0637'}
+Epoch 17 duration: 11.00 seconds
+11.00
+{'epoch': 18, 'rec_avg_loss': '0.0793', 'rec_cur_loss': '0.0796', 'rec_avg_auc': '0.997461', 'rec_avg_pvn_loss': '0.036769'}
+{'Epoch': 18, 'Recall@10': '0.0895', 'Recall@20': '0.1220', 'NDCG@10': '0.0547', 'NDCG@20': '0.0629'}
+Epoch 18 duration: 10.61 seconds
+10.61
+{'epoch': 19, 'rec_avg_loss': '0.0745', 'rec_cur_loss': '0.0725', 'rec_avg_auc': '0.997945', 'rec_avg_pvn_loss': '0.034504'}
+{'Epoch': 19, 'Recall@10': '0.0914', 'Recall@20': '0.1235', 'NDCG@10': '0.0552', 'NDCG@20': '0.0633'}
+Epoch 19 duration: 10.63 seconds
+10.63
+{'epoch': 20, 'rec_avg_loss': '0.0699', 'rec_cur_loss': '0.0601', 'rec_avg_auc': '0.997753', 'rec_avg_pvn_loss': '0.032132'}
+{'Epoch': 20, 'Recall@10': '0.0914', 'Recall@20': '0.1245', 'NDCG@10': '0.0548', 'NDCG@20': '0.0632'}
+Epoch 20 duration: 10.57 seconds
+10.57
+{'epoch': 21, 'rec_avg_loss': '0.0659', 'rec_cur_loss': '0.0599', 'rec_avg_auc': '0.998111', 'rec_avg_pvn_loss': '0.030164'}
+{'Epoch': 21, 'Recall@10': '0.0920', 'Recall@20': '0.1243', 'NDCG@10': '0.0562', 'NDCG@20': '0.0643'}
+Epoch 21 duration: 10.83 seconds
+10.83
+{'epoch': 22, 'rec_avg_loss': '0.0622', 'rec_cur_loss': '0.0640', 'rec_avg_auc': '0.998071', 'rec_avg_pvn_loss': '0.028120'}
+{'Epoch': 22, 'Recall@10': '0.0930', 'Recall@20': '0.1259', 'NDCG@10': '0.0568', 'NDCG@20': '0.0651'}
+Epoch 22 duration: 10.86 seconds
+10.86
+{'epoch': 23, 'rec_avg_loss': '0.0583', 'rec_cur_loss': '0.0608', 'rec_avg_auc': '0.998318', 'rec_avg_pvn_loss': '0.026314'}
+{'Epoch': 23, 'Recall@10': '0.0940', 'Recall@20': '0.1273', 'NDCG@10': '0.0579', 'NDCG@20': '0.0663'}
+Epoch 23 duration: 10.92 seconds
+10.92
+{'epoch': 24, 'rec_avg_loss': '0.0553', 'rec_cur_loss': '0.0572', 'rec_avg_auc': '0.998257', 'rec_avg_pvn_loss': '0.024543'}
+{'Epoch': 24, 'Recall@10': '0.0931', 'Recall@20': '0.1261', 'NDCG@10': '0.0573', 'NDCG@20': '0.0656'}
+Epoch 24 duration: 10.32 seconds
+10.32
+{'epoch': 25, 'rec_avg_loss': '0.0520', 'rec_cur_loss': '0.0448', 'rec_avg_auc': '0.998349', 'rec_avg_pvn_loss': '0.022920'}
+{'Epoch': 25, 'Recall@10': '0.0933', 'Recall@20': '0.1261', 'NDCG@10': '0.0576', 'NDCG@20': '0.0658'}
+Epoch 25 duration: 10.50 seconds
+10.50
+{'epoch': 26, 'rec_avg_loss': '0.0497', 'rec_cur_loss': '0.0499', 'rec_avg_auc': '0.998531', 'rec_avg_pvn_loss': '0.021953'}
+{'Epoch': 26, 'Recall@10': '0.0944', 'Recall@20': '0.1286', 'NDCG@10': '0.0579', 'NDCG@20': '0.0665'}
+Epoch 26 duration: 10.81 seconds
+10.81
+{'epoch': 27, 'rec_avg_loss': '0.0463', 'rec_cur_loss': '0.0450', 'rec_avg_auc': '0.998331', 'rec_avg_pvn_loss': '0.019654'}
+{'Epoch': 27, 'Recall@10': '0.0941', 'Recall@20': '0.1282', 'NDCG@10': '0.0578', 'NDCG@20': '0.0664'}
+Epoch 27 duration: 10.58 seconds
+10.58
+{'epoch': 28, 'rec_avg_loss': '0.0433', 'rec_cur_loss': '0.0403', 'rec_avg_auc': '0.998425', 'rec_avg_pvn_loss': '0.018026'}
+{'Epoch': 28, 'Recall@10': '0.0948', 'Recall@20': '0.1275', 'NDCG@10': '0.0574', 'NDCG@20': '0.0657'}
+Epoch 28 duration: 10.55 seconds
+10.55
+{'epoch': 29, 'rec_avg_loss': '0.0410', 'rec_cur_loss': '0.0433', 'rec_avg_auc': '0.998523', 'rec_avg_pvn_loss': '0.016633'}
+{'Epoch': 29, 'Recall@10': '0.0952', 'Recall@20': '0.1295', 'NDCG@10': '0.0587', 'NDCG@20': '0.0674'}
+Epoch 29 duration: 10.89 seconds
+10.89
+{'epoch': 30, 'rec_avg_loss': '0.0379', 'rec_cur_loss': '0.0331', 'rec_avg_auc': '0.998803', 'rec_avg_pvn_loss': '0.015091'}
+{'Epoch': 30, 'Recall@10': '0.0937', 'Recall@20': '0.1293', 'NDCG@10': '0.0570', 'NDCG@20': '0.0660'}
+Epoch 30 duration: 10.45 seconds
+10.45
+{'epoch': 31, 'rec_avg_loss': '0.0359', 'rec_cur_loss': '0.0342', 'rec_avg_auc': '0.998674', 'rec_avg_pvn_loss': '0.013862'}
+{'Epoch': 31, 'Recall@10': '0.0956', 'Recall@20': '0.1295', 'NDCG@10': '0.0592', 'NDCG@20': '0.0677'}
+Epoch 31 duration: 10.86 seconds
+10.86
+{'epoch': 32, 'rec_avg_loss': '0.0332', 'rec_cur_loss': '0.0365', 'rec_avg_auc': '0.999033', 'rec_avg_pvn_loss': '0.012588'}
+{'Epoch': 32, 'Recall@10': '0.0966', 'Recall@20': '0.1306', 'NDCG@10': '0.0595', 'NDCG@20': '0.0681'}
+Epoch 32 duration: 11.03 seconds
+11.03
+{'epoch': 33, 'rec_avg_loss': '0.0311', 'rec_cur_loss': '0.0283', 'rec_avg_auc': '0.998875', 'rec_avg_pvn_loss': '0.011216'}
+{'Epoch': 33, 'Recall@10': '0.0968', 'Recall@20': '0.1314', 'NDCG@10': '0.0599', 'NDCG@20': '0.0686'}
+Epoch 33 duration: 11.03 seconds
+11.03
+{'epoch': 34, 'rec_avg_loss': '0.0290', 'rec_cur_loss': '0.0267', 'rec_avg_auc': '0.998975', 'rec_avg_pvn_loss': '0.010156'}
+{'Epoch': 34, 'Recall@10': '0.0970', 'Recall@20': '0.1310', 'NDCG@10': '0.0601', 'NDCG@20': '0.0686'}
+Epoch 34 duration: 10.67 seconds
+10.67
+{'epoch': 35, 'rec_avg_loss': '0.0271', 'rec_cur_loss': '0.0280', 'rec_avg_auc': '0.998860', 'rec_avg_pvn_loss': '0.009048'}
+{'Epoch': 35, 'Recall@10': '0.0968', 'Recall@20': '0.1309', 'NDCG@10': '0.0599', 'NDCG@20': '0.0684'}
+Epoch 35 duration: 10.73 seconds
+10.73
+{'epoch': 36, 'rec_avg_loss': '0.0250', 'rec_cur_loss': '0.0245', 'rec_avg_auc': '0.999107', 'rec_avg_pvn_loss': '0.008253'}
+{'Epoch': 36, 'Recall@10': '0.0976', 'Recall@20': '0.1317', 'NDCG@10': '0.0601', 'NDCG@20': '0.0686'}
+Epoch 36 duration: 10.98 seconds
+10.98
+{'epoch': 37, 'rec_avg_loss': '0.0255', 'rec_cur_loss': '0.0274', 'rec_avg_auc': '0.998796', 'rec_avg_pvn_loss': '0.008233'}
+{'Epoch': 37, 'Recall@10': '0.0977', 'Recall@20': '0.1323', 'NDCG@10': '0.0603', 'NDCG@20': '0.0690'}
+Epoch 37 duration: 11.00 seconds
+11.00
+{'epoch': 38, 'rec_avg_loss': '0.0234', 'rec_cur_loss': '0.0204', 'rec_avg_auc': '0.998997', 'rec_avg_pvn_loss': '0.007142'}
+{'Epoch': 38, 'Recall@10': '0.0966', 'Recall@20': '0.1312', 'NDCG@10': '0.0593', 'NDCG@20': '0.0680'}
+Epoch 38 duration: 10.56 seconds
+10.56
+{'epoch': 39, 'rec_avg_loss': '0.0213', 'rec_cur_loss': '0.0211', 'rec_avg_auc': '0.999067', 'rec_avg_pvn_loss': '0.006101'}
+{'Epoch': 39, 'Recall@10': '0.0956', 'Recall@20': '0.1313', 'NDCG@10': '0.0592', 'NDCG@20': '0.0682'}
+Epoch 39 duration: 10.65 seconds
+10.65
+{'epoch': 40, 'rec_avg_loss': '0.0203', 'rec_cur_loss': '0.0184', 'rec_avg_auc': '0.999075', 'rec_avg_pvn_loss': '0.005747'}
+{'Epoch': 40, 'Recall@10': '0.0980', 'Recall@20': '0.1318', 'NDCG@10': '0.0601', 'NDCG@20': '0.0685'}
+Epoch 40 duration: 10.45 seconds
+10.45
+{'epoch': 41, 'rec_avg_loss': '0.0178', 'rec_cur_loss': '0.0222', 'rec_avg_auc': '0.999072', 'rec_avg_pvn_loss': '0.004674'}
+{'Epoch': 41, 'Recall@10': '0.0973', 'Recall@20': '0.1325', 'NDCG@10': '0.0601', 'NDCG@20': '0.0690'}
+Epoch 41 duration: 10.52 seconds
+10.52
+{'epoch': 42, 'rec_avg_loss': '0.0160', 'rec_cur_loss': '0.0173', 'rec_avg_auc': '0.999309', 'rec_avg_pvn_loss': '0.004078'}
+{'Epoch': 42, 'Recall@10': '0.0981', 'Recall@20': '0.1325', 'NDCG@10': '0.0603', 'NDCG@20': '0.0689'}
+Epoch 42 duration: 10.49 seconds
+10.49
+{'epoch': 43, 'rec_avg_loss': '0.0148', 'rec_cur_loss': '0.0145', 'rec_avg_auc': '0.999270', 'rec_avg_pvn_loss': '0.003592'}
+{'Epoch': 43, 'Recall@10': '0.0977', 'Recall@20': '0.1323', 'NDCG@10': '0.0599', 'NDCG@20': '0.0686'}
+Epoch 43 duration: 10.39 seconds
+10.39
+{'epoch': 44, 'rec_avg_loss': '0.0136', 'rec_cur_loss': '0.0120', 'rec_avg_auc': '0.999284', 'rec_avg_pvn_loss': '0.003197'}
+{'Epoch': 44, 'Recall@10': '0.0993', 'Recall@20': '0.1324', 'NDCG@10': '0.0603', 'NDCG@20': '0.0686'}
+Epoch 44 duration: 10.60 seconds
+10.60
+{'epoch': 45, 'rec_avg_loss': '0.0127', 'rec_cur_loss': '0.0109', 'rec_avg_auc': '0.999388', 'rec_avg_pvn_loss': '0.002857'}
+{'Epoch': 45, 'Recall@10': '0.0984', 'Recall@20': '0.1330', 'NDCG@10': '0.0601', 'NDCG@20': '0.0688'}
+Epoch 45 duration: 10.55 seconds
+10.55
+{'epoch': 46, 'rec_avg_loss': '0.0120', 'rec_cur_loss': '0.0093', 'rec_avg_auc': '0.999369', 'rec_avg_pvn_loss': '0.002626'}
+{'Epoch': 46, 'Recall@10': '0.0970', 'Recall@20': '0.1330', 'NDCG@10': '0.0596', 'NDCG@20': '0.0686'}
+Epoch 46 duration: 10.42 seconds
+10.42
+{'epoch': 47, 'rec_avg_loss': '0.0110', 'rec_cur_loss': '0.0089', 'rec_avg_auc': '0.999357', 'rec_avg_pvn_loss': '0.002378'}
+{'Epoch': 47, 'Recall@10': '0.0981', 'Recall@20': '0.1325', 'NDCG@10': '0.0601', 'NDCG@20': '0.0687'}
+Epoch 47 duration: 10.48 seconds
+10.48
+{'Epoch': 'best', 'Recall@10': '0.0977', 'Recall@20': '0.1323', 'NDCG@10': '0.0603', 'NDCG@20': '0.0690'}
+{'Epoch': 'best', 'Recall@10': '0.0770', 'Recall@20': '0.1050', 'NDCG@10': '0.0470', 'NDCG@20': '0.0540'}
+Prediction time: 10.55 seconds
+STOSA-Beauty-2-5-order-b-a-c
+{'Epoch': 'best', 'Recall@10': '0.0770', 'Recall@20': '0.1050', 'NDCG@10': '0.0470', 'NDCG@20': '0.0540'}
+Total training time: 21:39

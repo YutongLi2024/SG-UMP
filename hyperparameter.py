@@ -14,7 +14,7 @@ import os
 import itertools
 
 base_dir = os.path.dirname(os.path.abspath(__file__))  
-data_name = 'Beauty'
+data_name = 'Home'
 
 def run_experiment(args, user_seq, max_item, valid_rating_matrix, test_rating_matrix, num_users):
     """Run a single experiment with the given args configuration"""
@@ -223,12 +223,14 @@ def main():
     shared_expert_list = [4]
     specific_expert_list = [4]
     module_order_list = [
-        ["filter", "attention", "fusion"],
-        ["filter", "fusion", "attention"],
+        # ["filter", "attention", "fusion"],
+        # ["filter", "fusion", "attention"],
         ["attention", "filter", "fusion"],
         ["attention", "fusion", "filter"],
         ["fusion", "filter", "attention"],
-        ["fusion", "attention", "filter"]
+        ["fusion", "attention", "filter"],
+        ["filter", "attention", "fusion"],
+        ["filter", "fusion", "attention"],
     ]
     
     # grid search, run all combinations
